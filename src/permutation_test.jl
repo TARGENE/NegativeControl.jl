@@ -1,13 +1,5 @@
 module PermutationTest
 
-using CSV 
-using DataFrames
-using StableRNGs
-using Random
-using Combinatorics
-using TMLE
-using TargetedEstimation
-
 permuted_name(colname) = string(colname, "_permuted")
 split_string(s) = split(s, "_&_")
 
