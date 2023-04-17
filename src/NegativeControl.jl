@@ -1,5 +1,5 @@
 module NegativeControl
 
-# Write your package code here.
+include("permutation_test.jl")
 
 end
