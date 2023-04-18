@@ -6,6 +6,7 @@ using StableRNGs
 using Random
 using Combinatorics
 using TargetedEstimation
+using TMLE
 
 include("permutation_test.jl")
 

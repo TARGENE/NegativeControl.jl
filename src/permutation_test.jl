@@ -1,4 +1,3 @@
-module PermutationTest
 
 permuted_name(colname) = string(colname, "_permuted")
 split_string(s) = split(s, "_&_")
@@ -126,19 +125,17 @@ function run_permutation_test(parsed_args)
     
     # Retrieve TMLE specifications
     tmle_spec = TargetedEstimation.tmle_spec_from_yaml(estimator_file)
-    csv_io = initialize_csv_io(joinpath(outdir, "summary"))
+    csv_io = TargetedEstimation.initialize_csv_io(joinpath(outdir, "summary"))
     cache = TMLECache(data)
     for Ψ in parameters
         target = Ψ.target
         targetisbinary = TargetedEstimation.isbinarytarget(dataset[!, target])
-        targetisbinary && make_categorical!(dataset, target)
+        targetisbinary && TargetedEstimation.make_categorical!(dataset, target)
         η_spec = TargetedEstimation.nuisance_spec_from_target(tmle_spec, targetisbinary, tmle_spec.cache)
         tmle_result, log = TargetedEstimation.try_tmle!(cache, Ψ, η_spec; verbosity=verbosity, threshold=tmle_spec.threshold)
         # Append CSV result for target
-        append_csv(csv_io, [Ψ], [tmle_result], [log])
+        TargetedEstimation.append_csv(csv_io, [Ψ], [tmle_result], [log])
     end
 
     verbosity > 0 && @info "Done."
-end
-
 end

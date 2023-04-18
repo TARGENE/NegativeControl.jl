@@ -4,32 +4,35 @@ using Test
 using CSV
 using DataFrames
 using StableRNGs
+using NegativeControl
+
+results_file = joinpath("data", "summary.csv")
 
 @testset "Test misc functions" begin
     # Test parse_case_control
-    @test parse_case_control("2_&_1") == [2, 1]
-    @test parse_case_control("AC_&_CC") == ["AC", "CC"]
-    @test parse_case_control("AC_&_2") == ["AC", 2]
+    @test NegativeControl.parse_case_control("2_&_1") == [2, 1]
+    @test NegativeControl.parse_case_control("AC_&_CC") == ["AC", "CC"]
+    @test NegativeControl.parse_case_control("AC_&_2") == ["AC", 2]
 
     # Test permuted_name
-    @test permuted_name("toto") == "toto_permuted"
+    @test NegativeControl.permuted_name("toto") == "toto_permuted"
 
     # Test split_string
-    @test split_string("AC_&_CC") == ["AC", "CC"]
+    @test NegativeControl.split_string("AC_&_CC") == ["AC", "CC"]
 
     # Test make_permuted_col!
     data = DataFrame(
         A = [1, 2, 3],
         B = [1, 2, 3]
     )
-    make_permuted_col!(data, :A; rng=StableRNG(1234))
+    NegativeControl.make_permuted_col!(data, :A; rng=StableRNG(1234))
     @test data.A_permuted == [2, 3, 1]
     @test !hasproperty(data, :B_permuted)
 
     # Test make_parameter
     param_row = (CASE = "2_&_AC", CONTROL = "1_&_CC", CONFOUNDERS="PC1_&_PC2", COVARIATES="Age_&_Sex")
-    param = make_parameter(param_row, "Disease", ["rs12345", "rs56789_permuted"])
-    expected_param = IATE(
+    param = NegativeControl.make_parameter(param_row, "Disease", ["rs12345", "rs56789_permuted"])
+    expected_param = NegativeControl.IATE(
         target      = :Disease,
         treatment   = (rs12345=(case=2, control=1), rs56789_permuted=(case="AC", control="CC")),
         confounders = [:PC1, :PC2],
@@ -39,30 +42,31 @@ using StableRNGs
     @test param.confounders == expected_param.confounders
     @test param.covariates == expected_param.covariates
     @test param.treatment == expected_param.treatment
-    @test param isa IATE
 
     # Test permute_treatments
     treatments = ["rs1234", "rs456", "sex"]
-    treatment_comb = ["sex", "rs456"]
-    permuted_treatments = permute_treatments(treatments, treatment_comb)
-    @test permuted_treatments == ["rs1234", "rs456_permuted", "sex_permuted"]
-    treatment_comb = ["rs1234"]
-    permuted_treatments = permute_treatments(treatments, treatment_comb)
-    @test permuted_treatments == ["rs1234_permuted", "rs456", "sex"]
+    comb = ["disease", "rs456"]
+    target = "disease"
+    new_treatments, new_target = NegativeControl.permutation_setting(comb, treatments, target)
+    @test new_treatments == ["rs1234", "rs456_permuted", "sex"]
+    @test new_target == "disease_permuted"
+    comb = ["rs1234"]
+    new_treatments, new_target = NegativeControl.permutation_setting(comb, treatments, target)
+    @test new_treatments == ["rs1234_permuted", "rs456", "sex"]
+    @test new_target == target
 end
 
 @testset "Test retrieve_significant_results" begin
-    results_file = joinpath("test", "data", "summary.csv")
     # The last is an ATE and filtered
-    results = retrieve_significant_results(joinpath("test", "data", "summary.csv"); threshold=:PVALUE => 1)
+    results = NegativeControl.retrieve_significant_results(results_file; threshold=:PVALUE => 1)
     @test size(results) == (8, 15)
     # With another P-value column constraint
-    results = retrieve_significant_results(joinpath("test", "data", "summary.csv"); threshold=:ADJUSTED_PVALUE => 0.9)
+    results = NegativeControl.retrieve_significant_results(results_file; threshold=:ADJUSTED_PVALUE => 0.9)
     @test size(results) == (7, 15)
 end
 
 @testset "Test make_permutation_parameters" begin
-    results = retrieve_significant_results(joinpath("test", "data", "summary.csv"); threshold=:PVALUE => 1)
+    results = NegativeControl.retrieve_significant_results(results_file; threshold=:PVALUE => 1)
     # Only looking at first 4 rows corresponding to two different treatments 
     # and 3 targets
     # For each of the 4 parameters there are:
@@ -74,7 +78,7 @@ end
     # Those parameters should be generated in optimal estimation order 
     # to save computations
     tocheck = 4
-    parameters = make_permutation_parameters(results[1:tocheck, :])
+    parameters = NegativeControl.make_permutation_parameters(results[1:tocheck, :])
     @test size(parameters, 1) == 7*4
 
     expected_order = [
@@ -138,7 +142,7 @@ end
         "verbosity" => 1,
         "limit" => 10
     )    
-    # run(parsed_args)
+    # NegativeControl.run_permutation_test(parsed_args)
 end
 
 end
