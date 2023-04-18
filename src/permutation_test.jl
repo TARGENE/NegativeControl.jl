@@ -117,8 +117,8 @@ function run_permutation_test(parsed_args)
     dataset = NegativeControl.build_negative_control_dataset(joinpath(resultdir, "tmle_inputs", "final.data.csv"), results; rng=StableRNG(rng_int))
 
     treatment_cols = unique(Iterators.flatten(keys(p.treatment) for p in parameters))
-    covariate_cols = first(parameters).covariates
-    confounder_cols = first(parameters).confounders
+    covariate_cols = unique(Iterators.flatten(p.covariates for p in parameters))
+    confounder_cols = unique(Iterators.flatten(p.confounders for p in parameters))
     TargetedEstimation.make_categorical!(dataset, treatment_cols, infer_ordered=true)
     
     # Confounders and Covariates are converted to Float64
