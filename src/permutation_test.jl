@@ -31,7 +31,7 @@ make_permuted_col!(data, col; rng=StableRNG(123)) =
 """
 Rewrite the TMLE source datafile with additional permuted treatment columns
 """
-function build_negative_control_dataset(datafilepath, results; outpath=joinpath(OUTDIR, "dataset_with_permutations.csv"), rng=StableRNG(123))
+function build_negative_control_dataset(datafilepath, results; rng=StableRNG(123))
     data = CSV.read(datafilepath, DataFrame)
     treatment_cols = unique(reduce(vcat, [split(x, "_&_") for x in results[!, :TREATMENTS]]))
     target_cols = unique(results.TARGET)
@@ -101,21 +101,22 @@ function run_permutation_test(parsed_args)
     estimator_file = parsed_args["estimator-file"]
     verbosity = parsed_args["verbosity"]
     limit = parsed_args["limit"]
+    rng_int = parsed_args["rng"]
 
-    isdir(outdir) || mkdir(outdir)
+    ispath(outdir) || mkpath(outdir)
     verbosity > 0 && @info "Loading TarGene run summary.csv"
-    results = retrieve_significant_results(joinpath(resultdir, "summary.csv"), threshold=pval_col => pval_threshold)
+    results = NegativeControl.retrieve_significant_results(joinpath(resultdir, "summary.csv"), threshold=pval_col => pval_threshold)
     verbosity > 0 && @info string(size(results, 1), " parameters satisfying the threshold.")
     verbosity > 0 && @info "Generating permutation parameters."
-    parameters = make_permutation_parameters(results)
+    parameters = NegativeControl.make_permutation_parameters(results)
     if limit !== nothing
         parameters = parameters[1:limit]
     end
     verbosity > 0 && @info string(size(parameters, 1), " parameters will be estimated.")
     verbosity > 0 && @info "Building permutation dataset"
-    dataset = build_negative_control_dataset(joinpath(resultdir, "tmle_inputs", "final.data.csv"), results)
+    dataset = NegativeControl.build_negative_control_dataset(joinpath(resultdir, "tmle_inputs", "final.data.csv"), results; rng=StableRNG(rng_int))
 
-    treatment_cols = keys(first(parameters).treatment)
+    treatment_cols = unique(Iterators.flatten(keys(p.treatment) for p in parameters))
     covariate_cols = first(parameters).covariates
     confounder_cols = first(parameters).confounders
     TargetedEstimation.make_categorical!(dataset, treatment_cols, infer_ordered=true)
@@ -126,7 +127,7 @@ function run_permutation_test(parsed_args)
     # Retrieve TMLE specifications
     tmle_spec = TargetedEstimation.tmle_spec_from_yaml(estimator_file)
     csv_io = TargetedEstimation.initialize_csv_io(joinpath(outdir, "summary"))
-    cache = TMLECache(data)
+    cache = TMLECache(dataset)
     for Ψ in parameters
         target = Ψ.target
         targetisbinary = TargetedEstimation.isbinarytarget(dataset[!, target])
@@ -134,7 +135,7 @@ function run_permutation_test(parsed_args)
         η_spec = TargetedEstimation.nuisance_spec_from_target(tmle_spec, targetisbinary, tmle_spec.cache)
         tmle_result, log = TargetedEstimation.try_tmle!(cache, Ψ, η_spec; verbosity=verbosity, threshold=tmle_spec.threshold)
         # Append CSV result for target
-        TargetedEstimation.append_csv(csv_io, [Ψ], [tmle_result], [log])
+        TargetedEstimation.append_csv(csv_io, (PARAMETER=[Ψ],), [tmle_result], [log])
     end
 
     verbosity > 0 && @info "Done."

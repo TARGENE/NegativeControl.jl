@@ -121,28 +121,50 @@ end
 
 end
 
-@testset "Test run" begin
+@testset "Test run_permutation_test" begin
     parsed_args = Dict(
         "resultdir" => "data",
-        "outdir" => pwd(),
+        "outdir" => joinpath("results", "negative_control"),
         "pval-col" => "PVALUE",
         "pval-threshold" => 0.05,
         "estimator-file" => joinpath("data", "estimator.yaml"),
-        "verbosity" => 1,
-        "limit" => 10
+        "verbosity" => 0,
+        "limit" => 10,
+        "rng" => 123
     )    
+    NegativeControl.run_permutation_test(parsed_args)
 
+    summary = CSV.read(joinpath(parsed_args["outdir"], "summary.csv"), DataFrame)
+    @test size(summary) == (10, 19)
 
-    parsed_args = Dict(
-        "resultdir" => "results",
-        "outdir" => "results/negative_control",
-        "pval-col" => "PVALUE",
-        "pval-threshold" => 0.05,
-        "estimator-file" => joinpath("data", "estimator.yaml"),
-        "verbosity" => 1,
-        "limit" => 10
-    )    
-    # NegativeControl.run_permutation_test(parsed_args)
+    @test summary.TREATMENTS == [
+        "rs10043934_&_rs17216707",
+        "rs10043934_&_rs17216707",
+        "rs10043934_&_rs17216707",
+        "rs10043934_&_rs17216707_permuted",
+        "rs10043934_&_rs17216707_permuted",
+        "rs10043934_&_rs17216707_permuted",
+        "rs10043934_&_rs17216707_permuted",
+        "rs10043934_&_rs17216707_permuted",
+        "rs10043934_&_rs17216707_permuted",
+        "rs10043934_permuted_&_rs17216707"]
+    @test summary.TARGET == [
+        "High light scatter reticulocyte percentage_permuted",
+        "High light scatter reticulocyte percentage_permuted",
+        "O68 Labour and delivery complicated by foetal stress [distress]_permuted",
+        "High light scatter reticulocyte percentage",
+        "High light scatter reticulocyte percentage",
+        "High light scatter reticulocyte percentage_permuted",
+        "High light scatter reticulocyte percentage_permuted",
+        "O68 Labour and delivery complicated by foetal stress [distress]",
+        "O68 Labour and delivery complicated by foetal stress [distress]_permuted",
+        "High light scatter reticulocyte percentage"
+    ] 
+    # All TMLEs have succeeded
+    @test summary.TMLE_ESTIMATE isa Vector{Float64}
+    @test all(x === missing for x in summary.LOG)
+    # Clean
+    rm(parsed_args["outdir"], force=true, recursive=true)
 end
 
 end
