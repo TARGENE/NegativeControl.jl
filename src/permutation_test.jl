@@ -112,7 +112,7 @@ function generate_permutation_parameters_and_dataset(parsed_args)
     # Parsing Arguments
     datafile = parsed_args["dataset"]
     resultsfile = parsed_args["results"]
-    outdir = parsed_args["outdir"] === nothing ? pwd() : parsed_args["outdir"]
+    outdir = parsed_args["outdir"]
     pval_col = parsed_args["pval-col"]
     pval_threshold = parsed_args["pval-threshold"]    
     verbosity = parsed_args["verbosity"]
