@@ -1,12 +1,12 @@
 threshold: 1e-8
 # For the estimation of E[Y|W, T]: continuous target
 Q_continuous:
-  model: InteractionGLMNetRegressor
+  model: GLMNetRegressor
   nfolds: 3
 
 # For the estimation of E[Y|W, T]: bianry target
 Q_binary:
-  model: InteractionGLMNetClassifier
+  model: GLMNetClassifier
   nfolds: 3
 
 # For the estimation of p(T| W)
