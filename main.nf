@@ -1,8 +1,19 @@
 #!/usr/bin/env nextflow
 nextflow.enable.dsl = 2
 
+// Global Parameters
+
 params.RESULTS_FILE = ""
 params.RANDOM_VARIANTS = ""
+params.VERBOSITY = 1
+
+// Permutation Tests Parameters
+params.MAX_PERMUTATION_TESTS = null
+params.PVAL_COL = "ADJUSTED_PVALUE"
+params.PVAL_THRESHOLD = 0.05
+params.PERMUTATION_CHUNKSIZE
+params.PERMUTATION_ORDERS = "1"
+params.PERMUTATION_RNG = 123
 
 process GeneratePermutationTestsData {
     container "olivierlabayle/neg-cointrol:main"
@@ -11,16 +22,26 @@ process GeneratePermutationTestsData {
     label "bigmem"
     
     input:
-        results_file
+        path dataset
+        path results
 
     output:
-        path "dataset.csv", emit: dataset
-        path "final.*.yaml", emit: parameters
+        path "permutation_dataset.arrow", emit: dataset
+        path "*.yaml", emit: parameters
 
     script:
+        limit = params.MAX_PERMUTATION_TESTS == null ? "" : "--limit=${params.MAX_PERMUTATION_TESTS}"
         """
         TEMPD=\$(mktemp -d)
-        JULIA_DEPOT_PATH=\$TEMPD:/opt julia --project=/TargeneCore.jl --startup-file=no /TargeneCore.jl/bin/tmle_inputs.jl \
+        JULIA_DEPOT_PATH=\$TEMPD:/opt julia --project=/TargeneCore.jl --startup-file=no /NegativeControl/bin/generate_permutation_data.jl \
+        $dataset $results \
+        $limit \
+        --pval-col=${params.PVAL_COL} \
+        --pval-threshold=${params.PVAL_THRESHOLD} \
+        --orders=${params.PERMUTATION_ORDERS} \
+        --chunksize=${params.PERMUTATION_CHUNKSIZE} \
+        --rng=${params.PERMUTATION_RNG} \
+        --verbosity=${params.VERBOSITY}
         """
 }
 

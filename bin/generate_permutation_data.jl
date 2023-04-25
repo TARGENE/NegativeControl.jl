@@ -27,15 +27,15 @@ function parse_commandline()
             help = "The p-value threshold for significant results calling"
             default = 0.05
             arg_type = Float64
-        "limit"
+        "--limit"
             help = "The max number of permutation parameters to be generated"
             default = nothing
             arg_type = Int
-        "rng"
+        "--rng"
             help = "The random seed for permutations"
             default = 123
             arg_type = Int
-        "orders"
+        "--orders"
             help = "A comma separated set of combination orders e.g. 1,2,3"
             default = "1"
             arg_type = String
