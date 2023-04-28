@@ -9,7 +9,7 @@ from a set of estimation results given by `filepath`
 function retrieve_significant_results(filepath; threshold=:PVALUE => 0.05)
     data = CSV.read(filepath, DataFrame)
     pvalcol, pval = threshold
-    return filter(x -> x[pvalcol] < pval && x.PARAMETER_TYPE =="IATE" , data)
+    return filter(x -> x[pvalcol] !== missing && x[pvalcol] < pval && x.PARAMETER_TYPE =="IATE" , data)
 end
 
 function permutation_setting(comb, treatments, target)
