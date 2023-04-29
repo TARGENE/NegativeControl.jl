@@ -8,6 +8,7 @@ using Combinatorics
 using TMLE
 using Arrow
 using Serialization
+using BGEN
 
 include("permutation_test.jl")
 

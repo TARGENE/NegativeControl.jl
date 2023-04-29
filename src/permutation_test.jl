@@ -2,6 +2,9 @@
 permuted_name(colname) = string(colname, "_permuted")
 split_string(s) = split(s, "_&_")
 
+covariates(v::Missing) = Symbol[]
+
+covariates(v) = Symbol.(split_string(v))
 """
 Retrieve significant results defined by a threshold `Pair` `colname => threshold` 
 from a set of estimation results given by `filepath` 
@@ -67,7 +70,7 @@ function make_parameter(param_row, target, treatments)
         target      = Symbol(target),
         treatment   = treatment,
         confounders = Symbol.(split_string(param_row.CONFOUNDERS)),
-        covariates  = Symbol.(split_string(param_row.COVARIATES))
+        covariates  = covariates(param_row.COVARIATES) 
     )
 end
 
