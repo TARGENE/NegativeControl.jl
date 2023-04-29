@@ -138,11 +138,12 @@ end
 end
 
 @testset "Test run_permutation_test" begin
-    mkdir("resultdir")
+    outdir = "resultdir"
+    ispath(outdir) || mkdir(outdir)
     parsed_args = Dict(
         "dataset" => joinpath("data", "final.data.csv"),
         "results" => joinpath("data", "summary.csv"),
-        "outdir" => "resultdir",
+        "outdir" => outdir,
         "pval-col" => "PVALUE",
         "pval-threshold" => 0.05,
         "verbosity" => 0,
@@ -170,12 +171,12 @@ end
     # Check parameter files
     all_parameters = TMLE.Parameter[]
     for index in 1:3
-        params_group = deserialize(joinpath("resultdir", string("param_", index, ".bin")))
+        params_group = deserialize(joinpath(outdir, string("param_", index, ".bin")))
         append!(all_parameters, params_group)
     end
     @test length(all_parameters) == 12
     # Clean
-    rm("resultdir", force=true, recursive=true)
+    rm(outdir, force=true, recursive=true)
 end
 
 end
