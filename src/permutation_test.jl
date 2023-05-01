@@ -107,7 +107,7 @@ by group of size approximately greater than min_size.
 """
 function write_parameter_files(outdir, parameters, chunksize)
     for (index, param_group) in enumerate(Iterators.partition(parameters, chunksize))
-        serialize(joinpath(outdir, string("param_", index, ".bin")), param_group)
+        serialize(joinpath(outdir, string("permutation_param_", index, ".bin")), param_group)
     end
 end
 

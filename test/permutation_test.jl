@@ -171,7 +171,7 @@ end
     # Check parameter files
     all_parameters = TMLE.Parameter[]
     for index in 1:3
-        params_group = deserialize(joinpath(outdir, string("param_", index, ".bin")))
+        params_group = deserialize(joinpath(outdir, string("permutation_param_", index, ".bin")))
         append!(all_parameters, params_group)
     end
     @test length(all_parameters) == 12
