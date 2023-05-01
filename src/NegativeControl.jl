@@ -9,8 +9,15 @@ using TMLE
 using Arrow
 using Serialization
 using BGEN
+using JSON
+using HTTP
+using Statistics
 
+include("utils.jl")
 include("permutation_test.jl")
+include("random_variants_test.jl")
+
 
 export generate_permutation_parameters_and_dataset
+
 end

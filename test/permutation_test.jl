@@ -20,9 +20,6 @@ results_file = joinpath("data", "summary.csv")
     # Test permuted_name
     @test NegativeControl.permuted_name("toto") == "toto_permuted"
 
-    # Test split_string
-    @test NegativeControl.split_string("AC_&_CC") == ["AC", "CC"]
-
     # Test make_permuted_col!
     data = DataFrame(
         A = [1, 2, 3],
@@ -59,14 +56,6 @@ results_file = joinpath("data", "summary.csv")
     @test new_target == target
 end
 
-@testset "Test retrieve_significant_results" begin
-    # The last is an ATE and filtered
-    results = NegativeControl.retrieve_significant_results(results_file; threshold=:PVALUE => 1)
-    @test size(results) == (8, 15)
-    # With another P-value column constraint
-    results = NegativeControl.retrieve_significant_results(results_file; threshold=:ADJUSTED_PVALUE => 0.9)
-    @test size(results) == (7, 15)
-end
 
 @testset "Test make_permutation_parameters" begin
     results = NegativeControl.retrieve_significant_results(results_file; threshold=:PVALUE => 1)
