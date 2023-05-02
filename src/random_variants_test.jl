@@ -8,6 +8,8 @@ NotEnoughMatchingVariantsError(rsid, p, reltol) =
     ))
 
 
+read_snps_from_csv(path::String) = unique(CSV.read(path, DataFrame; select=[:ID, :CHR]), :ID)
+
 function trans_actors_from_prefix(trans_actors_prefix::AbstractString)
     dir, prefix = splitdir(trans_actors_prefix)
     dir_ = dir == "" ? "." : dir
@@ -17,7 +19,7 @@ function trans_actors_from_prefix(trans_actors_prefix::AbstractString)
             push!(trans_actors, read_snps_from_csv(joinpath(dir, filename)))
         end
     end
-    return Set(trans_actors.ID)
+    return Set(vcat((df.ID for df in trans_actors)...))
 end
 
 """
