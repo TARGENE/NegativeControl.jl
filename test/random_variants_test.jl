@@ -166,7 +166,7 @@ end
     parsed_args = Dict(
         "p" => 5,
         "results" => joinpath("data", "summary.csv"),
-        "trans-actors" => joinpath("data", "trans_actors.csv"),
+        "trans-actors-prefix" => joinpath("data", "trans_act"),
         "bgen-prefix" => joinpath("data", "bgen", "ukb"),
         "outdir" => outdir,
         "pval-col" => "PVALUE",

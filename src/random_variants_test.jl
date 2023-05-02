@@ -7,6 +7,19 @@ NotEnoughMatchingVariantsError(rsid, p, reltol) =
     " random matching variants for ", rsid, ", consider decreasing the MAF reltol (current: ", reltol, ")"
     ))
 
+
+function trans_actors_from_prefix(trans_actors_prefix::AbstractString)
+    dir, prefix = splitdir(trans_actors_prefix)
+    dir_ = dir == "" ? "." : dir
+    trans_actors = DataFrame[]
+    for filename in readdir(dir_)
+        if startswith(filename, prefix)
+            push!(trans_actors, read_snps_from_csv(joinpath(dir, filename)))
+        end
+    end
+    return Set(trans_actors.ID)
+end
+
 """
     control_case(variant::Variant, origin_variant::Variant, origin_case::Int, origin_control::Int)
 
@@ -222,7 +235,7 @@ function generate_random_variants_parameters_and_dataset(parsed_args)
     p = parsed_args["p"]
     rng = StableRNG(parsed_args["rng"])
     reltol = parsed_args["reltol"]
-    trans_actors = Set(CSV.read(parsed_args["trans-actors"], DataFrame).ID)
+    trans_actors = trans_actors_from_prefix(parsed_args["trans-actors-prefix"])
     bgen_prefix = parsed_args["bgen-prefix"]
     pval_col = parsed_args["pval-col"]
     pval_threshold = parsed_args["pval-threshold"]

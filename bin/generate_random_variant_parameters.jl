@@ -9,7 +9,7 @@ function parse_commandline()
         add_version = true)
 
     @add_arg_table s begin
-        "trans-actors"
+        "trans-actors-prefix"
             help = "Trans acting factors in csv format"
             required = true
         "results"
