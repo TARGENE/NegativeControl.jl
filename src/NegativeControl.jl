@@ -18,6 +18,6 @@ include("permutation_test.jl")
 include("random_variants_test.jl")
 
 
-export generate_permutation_parameters_and_dataset
+export generate_permutation_parameters_and_dataset, generate_random_variants_parameters_and_dataset
 
 end

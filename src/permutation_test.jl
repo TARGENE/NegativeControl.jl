@@ -57,7 +57,7 @@ function make_parameter(param_row, target, treatments)
         target      = Symbol(target),
         treatment   = treatment,
         confounders = Symbol.(split_string(param_row.CONFOUNDERS)),
-        covariates  = covariates(param_row.COVARIATES) 
+        covariates  = getcovariates(param_row.COVARIATES) 
     )
 end
 
@@ -96,7 +96,7 @@ function generate_permutation_parameters_and_dataset(parsed_args)
     verbosity = parsed_args["verbosity"]
     orders = parse.(Int, split(parsed_args["orders"], ","))
     limit = parsed_args["limit"]
-    rng_int = parsed_args["rng"]
+    rng = StableRNG(parsed_args["rng"])
     chunksize = parsed_args["chunksize"]
 
     # Generating Permutation Parameters
@@ -117,7 +117,7 @@ function generate_permutation_parameters_and_dataset(parsed_args)
         joinpath(outdir, "permutation_dataset.arrow"), 
         datafile, 
         results; 
-        rng=StableRNG(rng_int)
+        rng=rng
     )
     verbosity > 0 && @info "Done."
 end

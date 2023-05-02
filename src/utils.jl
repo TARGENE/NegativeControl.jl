@@ -1,8 +1,10 @@
 
+BGEN.rsid(s::AbstractString) = s
+
 split_string(s) = split(s, "_&_")
 
-covariates(v::Missing) = Symbol[]
-covariates(v) = Symbol.(split_string(v))
+getcovariates(v::Missing) = Symbol[]
+getcovariates(v) = Symbol.(split_string(v))
 
 """
 Retrieve significant results defined by a threshold `Pair` `colname => threshold` 
@@ -20,8 +22,16 @@ end
 Tries to group parameters together in optimal ordering 
 by group of size approximately greater than min_size.
 """
-function write_parameter_files(outdir, parameters, chunksize)
+function write_parameter_files(outdir, parameters, chunksize; prefix="permutation_param_")
     for (index, param_group) in enumerate(Iterators.partition(parameters, chunksize))
-        serialize(joinpath(outdir, string("permutation_param_", index, ".bin")), param_group)
+        serialize(joinpath(outdir, string(prefix, index, ".bin")), param_group)
     end
+end
+
+function unique_treatments(results::DataFrame)
+    treatments = Set{String}()
+    for treatment_string in results.TREATMENTS
+        push!(treatments, split_string(treatment_string)...)
+    end
+    return treatments
 end
