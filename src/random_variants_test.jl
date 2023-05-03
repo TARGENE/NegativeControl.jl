@@ -201,11 +201,13 @@ function make_random_variants_parameters(results, variant_map)
                 case = parse.(Int, case)
             end
 
-            treatments = [t ∈ transactors ? variant_map[t][2] : [t] for t in split_string(row.TREATMENTS)]
+            origin_treatments_ids = split_string(row.TREATMENTS)
+            treatments = [t ∈ transactors ? variant_map[t][2] : [t] for t in origin_treatments_ids]
             for treatment_vars ∈ Iterators.product(treatments...)
                 treatment_setting = []
                 for (index, treatment_var) in enumerate(treatment_vars)
-                    origin_variant = haskey(variant_map, treatment_var) ? variant_map[key][1] : treatment_var
+                    origin_id = origin_treatments_ids[index]
+                    origin_variant = haskey(variant_map, origin_id) ? variant_map[origin_id][1] : treatment_var
                     update_treatment_setting!(
                         treatment_setting, 
                         treatment_var, 
