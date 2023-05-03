@@ -93,12 +93,12 @@ end
     # Check criteria
     expected_mapped_rsids = Dict(
         "RSID_103" => [
-            "RSID_110", "RSID_10", "RSID_79", "RSID_179", "RSID_142",
-            "RSID_42", "RSID_61", "RSID_57", "RSID_157", "RSID_3"
+            "RSID_110", "RSID_10", "RSID_79", "RSID_6", "RSID_179", 
+            "RSID_142", "RSID_42", "RSID_106", "RSID_61", "RSID_57"
             ], 
         "RSID_198" => [
-            "RSID_20", "RSID_58", "RSID_120", "RSID_65", "RSID_127", 
-            "RSID_98", "RSID_165", "RSID_158", "RSID_186", "RSID_27"
+            "RSID_20", "RSID_58", "RSID_197", "RSID_120", "RSID_65", 
+            "RSID_127", "RSID_98", "RSID_188", "RSID_165", "RSID_158",
             ]
     )
     for (key, mapped_rsids) in expected_mapped_rsids
@@ -114,6 +114,7 @@ end
 
     # Failing 
     trans_actors = Set(["RSID_3"])
+    reltol = 0.005
     @test_throws NegativeControl.NotEnoughMatchingVariantsError("RSID_3", p, reltol) NegativeControl.find_maf_matching_random_variants(
         trans_actors, 
         bgen_prefix,
@@ -142,8 +143,8 @@ end
     filteredresults = filter(x -> any(occursin(t, x.TREATMENTS) for t in trans_actors), results)
     @test size(parameters, 1) == p*size(filteredresults, 1) == 25
     expected_variants = Dict(
-        "RSID_103" => ["RSID_110", "RSID_10", "RSID_79", "RSID_179", "RSID_142"],
-        "RSID_198" => ["RSID_20", "RSID_58", "RSID_120", "RSID_65", "RSID_127"]
+        "RSID_103" => ["RSID_110", "RSID_10", "RSID_79", "RSID_6", "RSID_179"],
+        "RSID_198" => ["RSID_20", "RSID_58", "RSID_197", "RSID_120", "RSID_65"]
     )
     for (initial_param_index, row) in enumerate(eachrow(filteredresults))
         bqtl, eqtl = NegativeControl.split_string(row.TREATMENTS)

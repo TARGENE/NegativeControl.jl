@@ -21,7 +21,7 @@ TMLE = "8afdd2fb-6e73-43df-8b62-b1650cd9c8cf"
 [compat]
 ArgParse = "1.1.4"
 Arrow = "2.5.2"
-BGEN = "0.1.14"
+BGEN = "0.1.16"
 CSV = "0.10.9"
 Combinatorics = "1.0.2"
 DataFrames = "1.5.0"
