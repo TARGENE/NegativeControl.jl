@@ -144,8 +144,7 @@ function find_maf_matching_random_variants!(b::Bgen, variant::Variant, rs_ids::S
     index = 1
     for candidate_rs_id in all_rsids
         candidate_variant = variant_by_rsid(b, candidate_rs_id)
-        if matches_constraints!(b, candidate_variant, target_maf, rs_ids)
-            minor_allele_dosage!(b, candidate_variant)
+        if matches_constraints!(b, candidate_variant, target_maf, rs_ids; reltol=reltol)
             matching_variants[index] = candidate_variant
             index += 1
             index > p && return matching_variants
