@@ -20,9 +20,6 @@ results_file = joinpath("data", "summary.csv")
     # Test permuted_name
     @test NegativeControl.permuted_name("toto") == "toto_permuted"
 
-    # Test split_string
-    @test NegativeControl.split_string("AC_&_CC") == ["AC", "CC"]
-
     # Test make_permuted_col!
     data = DataFrame(
         A = [1, 2, 3],
@@ -59,14 +56,6 @@ results_file = joinpath("data", "summary.csv")
     @test new_target == target
 end
 
-@testset "Test retrieve_significant_results" begin
-    # The last is an ATE and filtered
-    results = NegativeControl.retrieve_significant_results(results_file; threshold=:PVALUE => 1)
-    @test size(results) == (8, 15)
-    # With another P-value column constraint
-    results = NegativeControl.retrieve_significant_results(results_file; threshold=:ADJUSTED_PVALUE => 0.9)
-    @test size(results) == (7, 15)
-end
 
 @testset "Test make_permutation_parameters" begin
     results = NegativeControl.retrieve_significant_results(results_file; threshold=:PVALUE => 1)
@@ -79,18 +68,18 @@ end
     # = 12 paramters
     parameters = NegativeControl.make_permutation_parameters(results, [1])
     expected_parameters = [
-        IATE(Symbol("High light scatter reticulocyte percentage"), (rs10043934_permuted = (case = 2, control = 0), rs17216707 = (case = 1, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
-        IATE(Symbol("High light scatter reticulocyte percentage"), (rs10043934_permuted = (case = 1, control = 0), rs17216707 = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
-        IATE(Symbol("O68 Labour and delivery complicated by foetal stress [distress]"), (rs10043934_permuted = (case = 1, control = 0), rs17216707 = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
-        IATE(Symbol("High light scatter reticulocyte percentage_permuted"), (rs10043934 = (case = 2, control = 0), rs17216707 = (case = 1, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
-        IATE(Symbol("High light scatter reticulocyte percentage_permuted"), (rs10043934 = (case = 1, control = 0), rs17216707 = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
-        IATE(Symbol("O68 Labour and delivery complicated by foetal stress [distress]_permuted"), (rs10043934 = (case = 1, control = 0), rs17216707 = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
-        IATE(Symbol("High light scatter reticulocyte percentage"), (rs10043934 = (case = 2, control = 0), rs17216707_permuted = (case = 1, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
-        IATE(Symbol("High light scatter reticulocyte percentage"), (rs10043934 = (case = 1, control = 0), rs17216707_permuted = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
-        IATE(Symbol("O68 Labour and delivery complicated by foetal stress [distress]"), (rs10043934 = (case = 1, control = 0), rs17216707_permuted = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
-        IATE(Symbol("E20-E35 Disorders of other endocrine glands"), (rs10420720_permuted = (case = 1, control = 0), rs10741657 = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
-        IATE(Symbol("E20-E35 Disorders of other endocrine glands_permuted"), (rs10420720 = (case = 1, control = 0), rs10741657 = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
-        IATE(Symbol("E20-E35 Disorders of other endocrine glands"), (rs10420720 = (case = 1, control = 0), rs10741657_permuted = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
+        IATE(Symbol("High light scatter reticulocyte percentage_permuted"), (rs10043934 = (case = 2, control = 0), RSID_103 = (case = 1, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
+        IATE(Symbol("High light scatter reticulocyte percentage_permuted"), (rs10043934 = (case = 1, control = 0), RSID_103 = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
+        IATE(Symbol("O68 Labour and delivery complicated by foetal stress [distress]_permuted"), (rs10043934 = (case = 1, control = 0), RSID_103 = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
+        IATE(Symbol("High light scatter reticulocyte percentage"), (rs10043934 = (case = 2, control = 0), RSID_103_permuted = (case = 1, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
+        IATE(Symbol("High light scatter reticulocyte percentage"), (rs10043934 = (case = 1, control = 0), RSID_103_permuted = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
+        IATE(Symbol("O68 Labour and delivery complicated by foetal stress [distress]"), (rs10043934 = (case = 1, control = 0), RSID_103_permuted = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
+        IATE(Symbol("High light scatter reticulocyte percentage"), (rs10043934_permuted = (case = 2, control = 0), RSID_103 = (case = 1, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
+        IATE(Symbol("High light scatter reticulocyte percentage"), (rs10043934_permuted = (case = 1, control = 0), RSID_103 = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
+        IATE(Symbol("O68 Labour and delivery complicated by foetal stress [distress]"), (rs10043934_permuted = (case = 1, control = 0), RSID_103 = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
+        IATE(Symbol("E20-E35 Disorders of other endocrine glands_permuted"), (rs10420720 = (case = 1, control = 0), RSID_198 = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
+        IATE(Symbol("E20-E35 Disorders of other endocrine glands"), (rs10420720 = (case = 1, control = 0), RSID_198_permuted = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
+        IATE(Symbol("E20-E35 Disorders of other endocrine glands"), (rs10420720_permuted = (case = 1, control = 0), RSID_198 = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")])
     ]
     @test parameters == expected_parameters
 
@@ -105,44 +94,45 @@ end
     parameters = NegativeControl.make_permutation_parameters(results, [1,2,3])
     @test size(parameters, 1) == 7*4
     expected_parameters = [
-        IATE(Symbol("High light scatter reticulocyte percentage"), (rs10043934_permuted = (case = 2, control = 0), rs17216707 = (case = 1, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
-        IATE(Symbol("High light scatter reticulocyte percentage"), (rs10043934_permuted = (case = 1, control = 0), rs17216707 = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
-        IATE(Symbol("High light scatter reticulocyte percentage_permuted"), (rs10043934_permuted = (case = 2, control = 0), rs17216707 = (case = 1, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
-        IATE(Symbol("High light scatter reticulocyte percentage_permuted"), (rs10043934_permuted = (case = 1, control = 0), rs17216707 = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
-        IATE(Symbol("O68 Labour and delivery complicated by foetal stress [distress]"), (rs10043934_permuted = (case = 1, control = 0), rs17216707 = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
-        IATE(Symbol("O68 Labour and delivery complicated by foetal stress [distress]_permuted"), (rs10043934_permuted = (case = 1, control = 0), rs17216707 = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
-        IATE(Symbol("High light scatter reticulocyte percentage"), (rs10043934_permuted = (case = 2, control = 0), rs17216707_permuted = (case = 1, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
-        IATE(Symbol("High light scatter reticulocyte percentage"), (rs10043934_permuted = (case = 1, control = 0), rs17216707_permuted = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
-        IATE(Symbol("High light scatter reticulocyte percentage_permuted"), (rs10043934_permuted = (case = 2, control = 0), rs17216707_permuted = (case = 1, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
-        IATE(Symbol("High light scatter reticulocyte percentage_permuted"), (rs10043934_permuted = (case = 1, control = 0), rs17216707_permuted = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
-        IATE(Symbol("O68 Labour and delivery complicated by foetal stress [distress]"), (rs10043934_permuted = (case = 1, control = 0), rs17216707_permuted = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
-        IATE(Symbol("O68 Labour and delivery complicated by foetal stress [distress]_permuted"), (rs10043934_permuted = (case = 1, control = 0), rs17216707_permuted = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
-        IATE(Symbol("High light scatter reticulocyte percentage_permuted"), (rs10043934 = (case = 2, control = 0), rs17216707 = (case = 1, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
-        IATE(Symbol("High light scatter reticulocyte percentage_permuted"), (rs10043934 = (case = 1, control = 0), rs17216707 = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
-        IATE(Symbol("O68 Labour and delivery complicated by foetal stress [distress]_permuted"), (rs10043934 = (case = 1, control = 0), rs17216707 = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
-        IATE(Symbol("High light scatter reticulocyte percentage"), (rs10043934 = (case = 2, control = 0), rs17216707_permuted = (case = 1, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
-        IATE(Symbol("High light scatter reticulocyte percentage"), (rs10043934 = (case = 1, control = 0), rs17216707_permuted = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
-        IATE(Symbol("High light scatter reticulocyte percentage_permuted"), (rs10043934 = (case = 2, control = 0), rs17216707_permuted = (case = 1, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
-        IATE(Symbol("High light scatter reticulocyte percentage_permuted"), (rs10043934 = (case = 1, control = 0), rs17216707_permuted = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
-        IATE(Symbol("O68 Labour and delivery complicated by foetal stress [distress]"), (rs10043934 = (case = 1, control = 0), rs17216707_permuted = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
-        IATE(Symbol("O68 Labour and delivery complicated by foetal stress [distress]_permuted"), (rs10043934 = (case = 1, control = 0), rs17216707_permuted = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
-        IATE(Symbol("E20-E35 Disorders of other endocrine glands"), (rs10420720_permuted = (case = 1, control = 0), rs10741657 = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
-        IATE(Symbol("E20-E35 Disorders of other endocrine glands_permuted"), (rs10420720_permuted = (case = 1, control = 0), rs10741657 = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
-        IATE(Symbol("E20-E35 Disorders of other endocrine glands"), (rs10420720_permuted = (case = 1, control = 0), rs10741657_permuted = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
-        IATE(Symbol("E20-E35 Disorders of other endocrine glands_permuted"), (rs10420720_permuted = (case = 1, control = 0), rs10741657_permuted = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
-        IATE(Symbol("E20-E35 Disorders of other endocrine glands_permuted"), (rs10420720 = (case = 1, control = 0), rs10741657 = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
-        IATE(Symbol("E20-E35 Disorders of other endocrine glands"), (rs10420720 = (case = 1, control = 0), rs10741657_permuted = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
-        IATE(Symbol("E20-E35 Disorders of other endocrine glands_permuted"), (rs10420720 = (case = 1, control = 0), rs10741657_permuted = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
+        IATE(Symbol("High light scatter reticulocyte percentage_permuted"), (rs10043934 = (case = 2, control = 0), RSID_103 = (case = 1, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
+        IATE(Symbol("High light scatter reticulocyte percentage_permuted"), (rs10043934 = (case = 1, control = 0), RSID_103 = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
+        IATE(Symbol("O68 Labour and delivery complicated by foetal stress [distress]_permuted"), (rs10043934 = (case = 1, control = 0), RSID_103 = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
+        IATE(Symbol("High light scatter reticulocyte percentage"), (rs10043934 = (case = 2, control = 0), RSID_103_permuted = (case = 1, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
+        IATE(Symbol("High light scatter reticulocyte percentage"), (rs10043934 = (case = 1, control = 0), RSID_103_permuted = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
+        IATE(Symbol("High light scatter reticulocyte percentage_permuted"), (rs10043934 = (case = 2, control = 0), RSID_103_permuted = (case = 1, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
+        IATE(Symbol("High light scatter reticulocyte percentage_permuted"), (rs10043934 = (case = 1, control = 0), RSID_103_permuted = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
+        IATE(Symbol("O68 Labour and delivery complicated by foetal stress [distress]"), (rs10043934 = (case = 1, control = 0), RSID_103_permuted = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
+        IATE(Symbol("O68 Labour and delivery complicated by foetal stress [distress]_permuted"), (rs10043934 = (case = 1, control = 0), RSID_103_permuted = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
+        IATE(Symbol("High light scatter reticulocyte percentage"), (rs10043934_permuted = (case = 2, control = 0), RSID_103 = (case = 1, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
+        IATE(Symbol("High light scatter reticulocyte percentage"), (rs10043934_permuted = (case = 1, control = 0), RSID_103 = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
+        IATE(Symbol("High light scatter reticulocyte percentage_permuted"), (rs10043934_permuted = (case = 2, control = 0), RSID_103 = (case = 1, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
+        IATE(Symbol("High light scatter reticulocyte percentage_permuted"), (rs10043934_permuted = (case = 1, control = 0), RSID_103 = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
+        IATE(Symbol("O68 Labour and delivery complicated by foetal stress [distress]"), (rs10043934_permuted = (case = 1, control = 0), RSID_103 = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
+        IATE(Symbol("O68 Labour and delivery complicated by foetal stress [distress]_permuted"), (rs10043934_permuted = (case = 1, control = 0), RSID_103 = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
+        IATE(Symbol("High light scatter reticulocyte percentage"), (rs10043934_permuted = (case = 2, control = 0), RSID_103_permuted = (case = 1, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
+        IATE(Symbol("High light scatter reticulocyte percentage"), (rs10043934_permuted = (case = 1, control = 0), RSID_103_permuted = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
+        IATE(Symbol("High light scatter reticulocyte percentage_permuted"), (rs10043934_permuted = (case = 2, control = 0), RSID_103_permuted = (case = 1, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
+        IATE(Symbol("High light scatter reticulocyte percentage_permuted"), (rs10043934_permuted = (case = 1, control = 0), RSID_103_permuted = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
+        IATE(Symbol("O68 Labour and delivery complicated by foetal stress [distress]"), (rs10043934_permuted = (case = 1, control = 0), RSID_103_permuted = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
+        IATE(Symbol("O68 Labour and delivery complicated by foetal stress [distress]_permuted"), (rs10043934_permuted = (case = 1, control = 0), RSID_103_permuted = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
+        IATE(Symbol("E20-E35 Disorders of other endocrine glands_permuted"), (rs10420720 = (case = 1, control = 0), RSID_198 = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
+        IATE(Symbol("E20-E35 Disorders of other endocrine glands"), (rs10420720 = (case = 1, control = 0), RSID_198_permuted = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
+        IATE(Symbol("E20-E35 Disorders of other endocrine glands_permuted"), (rs10420720 = (case = 1, control = 0), RSID_198_permuted = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
+        IATE(Symbol("E20-E35 Disorders of other endocrine glands"), (rs10420720_permuted = (case = 1, control = 0), RSID_198 = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
+        IATE(Symbol("E20-E35 Disorders of other endocrine glands_permuted"), (rs10420720_permuted = (case = 1, control = 0), RSID_198 = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
+        IATE(Symbol("E20-E35 Disorders of other endocrine glands"), (rs10420720_permuted = (case = 1, control = 0), RSID_198_permuted = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
+        IATE(Symbol("E20-E35 Disorders of other endocrine glands_permuted"), (rs10420720_permuted = (case = 1, control = 0), RSID_198_permuted = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
     ]
     @test parameters == expected_parameters
 end
 
 @testset "Test run_permutation_test" begin
-    mkdir("resultdir")
+    outdir = "resultdir"
+    ispath(outdir) || mkdir(outdir)
     parsed_args = Dict(
         "dataset" => joinpath("data", "final.data.csv"),
         "results" => joinpath("data", "summary.csv"),
-        "outdir" => "resultdir",
+        "outdir" => outdir,
         "pval-col" => "PVALUE",
         "pval-threshold" => 0.05,
         "verbosity" => 0,
@@ -170,12 +160,12 @@ end
     # Check parameter files
     all_parameters = TMLE.Parameter[]
     for index in 1:3
-        params_group = deserialize(joinpath("resultdir", string("param_", index, ".bin")))
+        params_group = deserialize(joinpath(outdir, string("permutation_param_", index, ".bin")))
         append!(all_parameters, params_group)
     end
     @test length(all_parameters) == 12
     # Clean
-    rm("resultdir", force=true, recursive=true)
+    rm(outdir, force=true, recursive=true)
 end
 
 end

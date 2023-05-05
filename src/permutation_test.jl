@@ -1,16 +1,6 @@
 
 permuted_name(colname) = string(colname, "_permuted")
-split_string(s) = split(s, "_&_")
 
-"""
-Retrieve significant results defined by a threshold `Pair` `colname => threshold` 
-from a set of estimation results given by `filepath` 
-"""
-function retrieve_significant_results(filepath; threshold=:PVALUE => 0.05)
-    data = CSV.read(filepath, DataFrame)
-    pvalcol, pval = threshold
-    return filter(x -> x[pvalcol] < pval && x.PARAMETER_TYPE =="IATE" , data)
-end
 
 function permutation_setting(comb, treatments, target)
     new_treatments = []
@@ -67,7 +57,7 @@ function make_parameter(param_row, target, treatments)
         target      = Symbol(target),
         treatment   = treatment,
         confounders = Symbol.(split_string(param_row.CONFOUNDERS)),
-        covariates  = Symbol.(split_string(param_row.COVARIATES))
+        covariates  = getcovariates(param_row.COVARIATES) 
     )
 end
 
@@ -96,18 +86,6 @@ function make_permutation_parameters(results, orders)
     return optimize_ordering(parameters)
 end
 
-"""
-    group_parameters(parameters; min_size=1)
-
-Tries to group parameters together in optimal ordering 
-by group of size approximately greater than min_size.
-"""
-function write_parameter_files(outdir, parameters, chunksize)
-    for (index, param_group) in enumerate(Iterators.partition(parameters, chunksize))
-        serialize(joinpath(outdir, string("param_", index, ".bin")), param_group)
-    end
-end
-
 function generate_permutation_parameters_and_dataset(parsed_args)
     # Parsing Arguments
     datafile = parsed_args["dataset"]
@@ -118,7 +96,7 @@ function generate_permutation_parameters_and_dataset(parsed_args)
     verbosity = parsed_args["verbosity"]
     orders = parse.(Int, split(parsed_args["orders"], ","))
     limit = parsed_args["limit"]
-    rng_int = parsed_args["rng"]
+    rng = StableRNG(parsed_args["rng"])
     chunksize = parsed_args["chunksize"]
 
     # Generating Permutation Parameters
@@ -139,7 +117,7 @@ function generate_permutation_parameters_and_dataset(parsed_args)
         joinpath(outdir, "permutation_dataset.arrow"), 
         datafile, 
         results; 
-        rng=StableRNG(rng_int)
+        rng=rng
     )
     verbosity > 0 && @info "Done."
 end
