@@ -18,10 +18,10 @@ function parse_commandline()
         "bgen-prefix"
             help = "BGEN chromosome files prefix"
             required = true
-        "--outdir"
-            help = "Where the data will be generated."
+        "--out"
+            help = "Path to the output .yaml file "
             arg_type = String
-            default = pwd()
+            default = "random_variants_parameters.yaml"
         "--p"
             help = "Number of random variants per trans-actor"
             arg_type = Int

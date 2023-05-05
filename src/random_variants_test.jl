@@ -242,7 +242,7 @@ function generate_random_variants_parameters_and_dataset(parsed_args)
     bgen_prefix = parsed_args["bgen-prefix"]
     pval_col = parsed_args["pval-col"]
     pval_threshold = parsed_args["pval-threshold"]
-    outdir = parsed_args["outdir"]
+    out = parsed_args["out"]
     chunksize = parsed_args["chunksize"]
     verbosity = parsed_args["verbosity"]
     
@@ -255,6 +255,6 @@ function generate_random_variants_parameters_and_dataset(parsed_args)
     verbosity > 0 && @info string("Building new parameters.")
     parameters = make_random_variants_parameters(results, variant_map)
     optimize_ordering!(parameters)
-    write_parameter_files(outdir, parameters, chunksize; prefix="random_variants_param_")
+    parameters_to_yaml(out, parameters)
     verbosity > 0 && @info string("Done.")
 end

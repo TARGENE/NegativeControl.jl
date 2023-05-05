@@ -162,14 +162,12 @@ end
 end
 
 @testset "Test generate_random_variants_parameters_and_dataset" begin
-    outdir = "resultdir"
-    ispath(outdir) || mkdir(outdir)
     parsed_args = Dict(
         "p" => 5,
         "results" => joinpath("data", "summary.csv"),
         "trans-actors-prefix" => joinpath("data", "trans_act"),
         "bgen-prefix" => joinpath("data", "bgen", "ukb"),
-        "outdir" => outdir,
+        "out" => "random_variants_parameters.yaml",
         "pval-col" => "PVALUE",
         "pval-threshold" => 0.05,
         "verbosity" => 0,
@@ -178,10 +176,7 @@ end
         "chunksize" => 15
     )  
     generate_random_variants_parameters_and_dataset(parsed_args)
-    # Clean
-    params_1 = deserialize(joinpath(outdir, "random_variants_param_1.bin"))
-    params_2 = deserialize(joinpath(outdir, "random_variants_param_2.bin"))
-    parameters = vcat(params_1, params_2)
+    parameters = parameters_from_yaml(parsed_args["out"])
     @test size(parameters, 1) == 25
     expected_mapped_variants = Dict(
         :RSID_110 => 0, 
@@ -224,7 +219,8 @@ end
         :RSID_110 => 3,
         :RSID_20  => 2
     )
-    rm(outdir, force=true, recursive=true)
+    # Clean
+    rm(parsed_args["out"])
 end
 
 end
