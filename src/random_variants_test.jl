@@ -261,7 +261,6 @@ function generate_random_variants_parameters_and_dataset(parsed_args)
     pval_col = parsed_args["pval-col"]
     pval_threshold = parsed_args["pval-threshold"]
     out = parsed_args["out"]
-    chunksize = parsed_args["chunksize"]
     verbosity = parsed_args["verbosity"]
     
     verbosity > 0 && @info string("Retrieving significant parameters.")

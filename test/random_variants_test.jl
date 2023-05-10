@@ -71,7 +71,7 @@ end
     transactors = Set(["RSID_103"])
     variants = NegativeControl.find_maf_matching_random_variants!(
         b, variant, transactors; 
-        p=10, rng=StableRNG(123), reltol=0.05
+        p=10, rng=StableRNG(123), reltol=0.05, verbosity=0
     )
     @test size(variants, 1) == 10
     for v in variants
@@ -173,7 +173,6 @@ end
         "verbosity" => 0,
         "reltol" => 0.05,
         "rng" => 123,
-        "chunksize" => 15
     )  
     generate_random_variants_parameters_and_dataset(parsed_args)
     parameters = parameters_from_yaml(parsed_args["out"])

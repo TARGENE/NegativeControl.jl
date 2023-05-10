@@ -42,10 +42,6 @@ function parse_commandline()
             help = "The random seed for permutations"
             default = 123
             arg_type = Int
-        "--chunksize"
-            help = "Results will be appended to outfiles every chunk"
-            default = 100
-            arg_type = Int
         "--verbosity", "-v"
             help = "Verbosity level"
             arg_type = Int
