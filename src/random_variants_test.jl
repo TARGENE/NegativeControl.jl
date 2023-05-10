@@ -137,14 +137,28 @@ that match the variant's MAF (up to the relative `tol`) and are not in:
 - (iv) `rs_ids`
 
 """
-function find_maf_matching_random_variants!(b::Bgen, variant::Variant, rs_ids::Set{<:AbstractString}; p=10, rng=StableRNG(123), reltol=0.05)
+function find_maf_matching_random_variants!(
+    b::Bgen, variant::Variant, rs_ids::Set{<:AbstractString}; 
+    p=10, rng=StableRNG(123), reltol=0.05, verbosity=1
+    )
     target_maf = mean(minor_allele_dosage!(b, variant))
     all_rsids = shuffle(rng, rsids(b))
     matching_variants = Vector{Variant}(undef, p)
     index = 1
     for candidate_rs_id in all_rsids
-        candidate_variant = variant_by_rsid(b, candidate_rs_id)
+        # Some rs_ids do not correspond to a unique entry and can raise,
+        # we just skip those
+        candidate_variant = try
+            variant_by_rsid(b, candidate_rs_id)
+        catch
+            verbosity > 0 && @info(string(
+                "An error occured while looking for variant ", 
+                candidate_rs_id, 
+                " in BGEN file: continuing."))
+            continue
+        end
         if matches_constraints!(b, candidate_variant, target_maf, rs_ids; reltol=reltol)
+            verbosity > 0 && @info("Found matching variant: ", rsid(candidate_variant))
             matching_variants[index] = candidate_variant
             index += 1
             index > p && return matching_variants
@@ -153,7 +167,10 @@ function find_maf_matching_random_variants!(b::Bgen, variant::Variant, rs_ids::S
     throw(NotEnoughMatchingVariantsError(rsid(variant), p, reltol))
 end
 
-function find_maf_matching_random_variants(trans_actors::Set{<:AbstractString}, bgen_prefix::AbstractString, all_rsids::Set{<:AbstractString}; p=10, rng=StableRNG(123), reltol=0.05)
+function find_maf_matching_random_variants(
+    trans_actors::Set{<:AbstractString}, bgen_prefix::AbstractString, all_rsids::Set{<:AbstractString}; 
+    p=10, rng=StableRNG(123), reltol=0.05, verbosity=1
+    )
     chr_dir_, prefix_ = splitdir(bgen_prefix)
     chr_dir = chr_dir_ == "" ? "." : chr_dir_
     variant_map = Dict()
@@ -166,12 +183,13 @@ function find_maf_matching_random_variants(trans_actors::Set{<:AbstractString}, 
             for rs_id in remaining_transactors
                 if rs_id ∈ bgen_rsids
                     variant = variant_by_rsid(b, rs_id)
+                    verbosity > 0 && @info("Looking for variants matching: ", rs_id)
                     minor_allele_dosage!(b, variant)
                     variant_map[rs_id] = (
                         variant,
                         find_maf_matching_random_variants!(
                         b, variant, all_rsids;
-                        p=p, rng=rng, reltol=reltol)
+                        p=p, rng=rng, reltol=reltol, verbosity=verbosity)
                     )
                     pop!(remaining_transactors, rs_id)
                 end
@@ -251,7 +269,10 @@ function generate_random_variants_parameters_and_dataset(parsed_args)
     all_rsids = unique_treatments(results)
 
     verbosity > 0 && @info string("Looking for random MAF matching variants for each trans-actor.")
-    variant_map = find_maf_matching_random_variants(trans_actors, bgen_prefix, all_rsids; p=p, rng=rng, reltol=reltol)
+    variant_map = find_maf_matching_random_variants(
+        trans_actors, bgen_prefix, all_rsids; 
+        p=p, rng=rng, reltol=reltol, verbosity=verbosity
+    )
     verbosity > 0 && @info string("Building new parameters.")
     parameters = make_random_variants_parameters(results, variant_map)
     optimize_ordering!(parameters)
