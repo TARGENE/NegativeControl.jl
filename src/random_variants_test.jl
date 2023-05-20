@@ -111,8 +111,13 @@ function same_maf(b::Bgen, variant::Variant, maf::AbstractFloat; reltol=0.05)
     return abs(maf - variant_maf)/maf <= reltol
 end
 
-function matches_constraints!(b::Bgen, candidate_variant::Variant, target_maf::AbstractFloat, rs_ids::Set{<:AbstractString}; reltol=0.05)
+isSNP(v::Variant) = all(length(a) == 1 for a in alleles(v))
+
+function matches_constraints!(b::Bgen, candidate_variant::Variant, variant::Variant, target_maf::AbstractFloat, rs_ids::Set{<:AbstractString}; reltol=0.05)
     rsid(candidate_variant) ∈ rs_ids && return false
+    if isSNP(variant)
+        isSNP(candidate_variant) || return false
+    end
     if same_maf(b, candidate_variant, target_maf; reltol=reltol)
         isreg = false
         try
@@ -157,7 +162,7 @@ function find_maf_matching_random_variants!(
                 " in BGEN file: continuing."))
             continue
         end
-        if matches_constraints!(b, candidate_variant, target_maf, rs_ids; reltol=reltol)
+        if matches_constraints!(b, candidate_variant, variant, target_maf, rs_ids; reltol=reltol)
             verbosity > 0 && @info("Found matching variant: ", rsid(candidate_variant))
             matching_variants[index] = candidate_variant
             index += 1

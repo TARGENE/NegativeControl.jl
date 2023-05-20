@@ -11,7 +11,7 @@ using TMLE
 
 results_file = joinpath("data", "summary.csv")
 
-@testset "Test same_maf" begin
+@testset "Test same_maf and isSNP" begin
     b = Bgen(
         BGEN.datadir("example.8bits.bgen"); 
         sample_path=BGEN.datadir("example.sample"), 
@@ -21,6 +21,11 @@ results_file = joinpath("data", "summary.csv")
     @test mean(minor_allele_dosage!(b, v)) ≈ 0.48411763 atol=1e-5
     @test NegativeControl.same_maf(b, v, 0.51; reltol=0.05) == false
     @test NegativeControl.same_maf(b, v, 0.50; reltol=0.05) == true
+
+    @test NegativeControl.isSNP(v)
+    v.alleles = ["AG", "GG"]
+    @test !NegativeControl.isSNP(v)
+
 end
 
 @testset "Test control_case" begin
@@ -87,7 +92,7 @@ end
         trans_actors, 
         bgen_prefix,
         trans_actors; 
-        p=p, rng=StableRNG(123), reltol=reltol
+        p=p, rng=StableRNG(123), reltol=reltol, verbosity=0
     )
 
     # Check criteria
@@ -119,7 +124,7 @@ end
         trans_actors, 
         bgen_prefix,
         trans_actors; 
-        p=p, rng=StableRNG(123), reltol=reltol
+        p=p, rng=StableRNG(123), reltol=reltol, verbosity=0
     )
 end
 
@@ -135,7 +140,7 @@ end
         trans_actors, 
         bgen_prefix,
         trans_actors; 
-        p=p, rng=rng, reltol=reltol
+        p=p, rng=rng, reltol=reltol, verbosity=0
     )
 
     parameters = NegativeControl.make_random_variants_parameters(results, variant_map)
