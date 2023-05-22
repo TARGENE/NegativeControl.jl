@@ -24,7 +24,7 @@ by group of size approximately greater than min_size.
 """
 function write_parameter_files(outdir, parameters, chunksize; prefix="permutation_param_")
     for (index, param_group) in enumerate(Iterators.partition(parameters, chunksize))
-        parameters_to_yaml(joinpath(outdir, string(prefix, index, ".bin")), param_group)
+        parameters_to_yaml(joinpath(outdir, string(prefix, index, ".yaml")), param_group)
     end
 end
 

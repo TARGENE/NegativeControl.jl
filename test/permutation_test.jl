@@ -160,7 +160,7 @@ end
     # Check parameter files
     all_parameters = TMLE.Parameter[]
     for index in 1:3
-        params_group = parameters_from_yaml(joinpath(outdir, string("permutation_param_", index, ".bin")))
+        params_group = parameters_from_yaml(joinpath(outdir, string("permutation_param_", index, ".yaml")))
         append!(all_parameters, params_group)
     end
     @test length(all_parameters) == 12
