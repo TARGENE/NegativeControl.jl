@@ -212,7 +212,7 @@ function make_random_variants_parameters(results, variant_map)
     for row in eachrow(results)
         # At least one trans-actor in the parameter treatments to be processed
         if any(occursin(rs_id, row.TREATMENTS) for rs_id in transactors)
-            confounders = Symbol.(split_string(row.CONFOUNDERS))
+            confounders = getconfounders(row.CONFOUNDERS)
             target = Symbol(row.TARGET)
             covariates = getcovariates(row.COVARIATES)
             paramtype = getfield(TMLE, Symbol(row.PARAMETER_TYPE))

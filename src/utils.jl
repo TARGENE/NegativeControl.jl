@@ -7,6 +7,14 @@ getcovariates(v::Missing) = Symbol[]
 getcovariates(v) = Symbol.(split_string(v))
 
 """
+    getconfounders(v)
+
+Split string and remove principal components from the list.
+"""
+getconfounders(v) = Symbol.(filter(x -> !occursin(r"^PC[0-9]*$", x), split_string(v)))
+
+
+"""
 Retrieve significant results defined by a threshold `Pair` `colname => threshold` 
 from a set of estimation results given by `filepath` 
 """

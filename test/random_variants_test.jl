@@ -156,7 +156,7 @@ end
         for new_param_index in 1:p
             Ψ = parameters[5*(initial_param_index - 1) + new_param_index]
             @test Ψ.target == Symbol(row.TARGET)
-            @test Ψ.confounders == Symbol.(NegativeControl.split_string(row.CONFOUNDERS))
+            @test Ψ.confounders == []
             @test Ψ.covariates == NegativeControl.getcovariates(row.COVARIATES)
             @test Ψ isa IATE
             @test keys(Ψ.treatment)[1] == Symbol(bqtl)
@@ -202,7 +202,7 @@ end
     )
     for Ψ in parameters
         expected_mapped_variants[keys(Ψ.treatment)[2]] += 1
-        @test Ψ.confounders == [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6]
+        @test Ψ.confounders == []
         expected_targets[Ψ.target] += 1
     end
     @test expected_targets == Dict(
