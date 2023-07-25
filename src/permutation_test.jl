@@ -22,7 +22,7 @@ make_permuted_col!(data, col; rng=StableRNG(123)) =
 Rewrite the TMLE source datafile with additional permuted treatment columns
 """
 function write_negative_control_dataset(outfile, datafilepath, results; rng=StableRNG(123))
-    data = CSV.read(datafilepath, DataFrame)
+    data = instantiate_dataset(datafilepath)
     treatment_cols = unique(reduce(vcat, [split(x, "_&_") for x in results[!, :TREATMENTS]]))
     target_cols = unique(results.TARGET)
     for col in vcat(treatment_cols, target_cols)

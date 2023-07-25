@@ -1,4 +1,13 @@
 
+"""
+    instantiate_dataset(path::String)
+
+Returns a DataFrame wrapper around a dataset, either in CSV format.
+"""
+instantiate_dataset(path::String) =
+    endswith(path, ".csv") ? CSV.read(path, DataFrame, ntasks=1) : DataFrame(Arrow.Table(path))
+
+    
 BGEN.rsid(s::AbstractString) = s
 
 split_string(s) = split(s, "_&_")
