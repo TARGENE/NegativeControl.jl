@@ -12,6 +12,7 @@ using BGEN
 using JSON
 using HTTP
 using Statistics
+using JLD2
 
 include("utils.jl")
 include("permutation_test.jl")

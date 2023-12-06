@@ -19,10 +19,6 @@ function parse_commandline()
             help = "Where the data will be generated."
             arg_type = String
             default = pwd()
-        "--pval-col"
-            help = "The p-value column to search for significant results"
-            default = "TMLE_PVALUE"
-            arg_type = String
         "--pval-threshold"
             help = "The p-value threshold for significant results calling"
             default = 0.05

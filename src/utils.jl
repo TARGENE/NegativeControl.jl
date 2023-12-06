@@ -7,13 +7,17 @@ Returns a DataFrame wrapper around a dataset, either in CSV format.
 instantiate_dataset(path::String) =
     endswith(path, ".csv") ? CSV.read(path, DataFrame, ntasks=1) : DataFrame(Arrow.Table(path))
 
-    
-BGEN.rsid(s::AbstractString) = s
+BGEN.rsid(s::Symbol) = s
 
-split_string(s) = split(s, "_&_")
+treatment_variables(Ψ::ComposedEstimand) =
+    unique(vcat((treatment_variables(arg) for arg ∈ Ψ.args)...))
 
-getcovariates(v::Missing) = Symbol[]
-getcovariates(v) = Symbol.(split_string(v))
+treatment_variables(Ψ) = collect(keys(Ψ.treatment_values))
+
+outcome_variables(Ψ) = [Ψ.outcome]
+
+outcome_variables(Ψ::ComposedEstimand) = 
+    unique(vcat((outcome_variables(arg) for arg ∈ Ψ.args)...))
 
 """
     getconfounders(v)
@@ -22,15 +26,49 @@ Split string and remove principal components from the list.
 """
 getconfounders(v) = Symbol.(filter(x -> !occursin(r"^PC[0-9]*$", x), split_string(v)))
 
+default_statistical_test(Ψ̂; threshold=0.05) = pvalue(OneSampleTTest(Ψ̂)) < threshold
 
-"""
-Retrieve significant results defined by a threshold `Pair` `colname => threshold` 
-from a set of estimation results given by `filepath` 
-"""
-function retrieve_significant_results(filepath; threshold=:PVALUE => 0.05)
-    data = CSV.read(filepath, DataFrame)
-    pvalcol, pval = threshold
-    return filter(x -> x[pvalcol] !== missing && x[pvalcol] < pval && x.PARAMETER_TYPE =="IATE" , data)
+default_statistical_test(Ψ̂::TMLE.ComposedEstimate; threshold=0.05) = 
+    length(Ψ̂.estimate) > 1 ? pvalue(TMLE.OneSampleHotellingT2Test(Ψ̂)) < threshold : pvalue(TMLE.OneSampleTTest(Ψ̂)) < threshold
+
+is_significant(Ψ̂; threshold=0.05) = 
+    default_statistical_test(Ψ̂; threshold=threshold)
+
+function read_significant_from_hdf5(filename; threshold=0.05)
+    jldopen(filename) do io
+        return mapreduce(vcat, keys(io)) do key
+            [Ψ̂.estimand for Ψ̂ ∈ io[key] if is_significant(Ψ̂; threshold=threshold)]
+        end
+    end
+end
+
+function read_significant_from_jls(filename; threshold=0.05)
+    results = []
+    open(filename) do io
+        while !eof(io)
+            Ψ̂ = deserialize(io)
+            if is_significant(Ψ̂, threshold=threshold)
+                push!(results, Ψ̂.estimand)
+            end
+        end
+    end
+    return results
+end
+
+read_significant_from_json(filename; threshold=0.05) = 
+    [Ψ̂.estimand for Ψ̂ ∈ TMLE.read_json(filename) if is_significant(Ψ̂; threshold=threshold)]
+
+function read_significant_results(filename; threshold=0.05)
+    results = if endswith(filename, "hdf5")
+        read_significant_from_hdf5(filename; threshold=threshold)
+    elseif endswith(filename, "jls")
+        read_significant_from_jls(filename; threshold=threshold)
+    elseif endswith(filename, "json")
+        read_significant_from_json(filename; threshold=threshold)
+    else
+        throw(ArgumentError("Unupported estimate file format: $filepath"))
+    end
+    return results
 end
 
 """
@@ -39,16 +77,16 @@ end
 Tries to group parameters together in optimal ordering 
 by group of size approximately greater than min_size.
 """
-function write_parameter_files(outdir, parameters, chunksize; prefix="permutation_param_")
-    for (index, param_group) in enumerate(Iterators.partition(parameters, chunksize))
-        parameters_to_yaml(joinpath(outdir, string(prefix, index, ".yaml")), param_group)
+function write_parameter_files(outdir, parameters, chunksize; prefix="permutation_estimands_")
+    for (index, batch) in enumerate(Iterators.partition(parameters, chunksize))
+        serialize(joinpath(outdir, string(prefix, index, ".yaml")), Configuration(estimands=batch))
     end
 end
 
-function unique_treatments(results::DataFrame)
+function unique_treatments(estimands)
     treatments = Set{String}()
-    for treatment_string in results.TREATMENTS
-        push!(treatments, split_string(treatment_string)...)
+    for Ψ in estimands
+        union!(treatments, string.(treatment_variables(Ψ)))
     end
     return treatments
 end
