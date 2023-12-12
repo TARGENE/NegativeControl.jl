@@ -132,11 +132,10 @@ end
 
     # Clean
     clean()
-    for file in readdir()
-        if startswith(file, "permutation_")
-            rm(file)
-        end
-    end
+    rm("permutation_estimands_1.yaml")
+    rm("permutation_estimands_2.yaml")
+    rm("permutation_estimands_3.yaml")
+    rm("permutation_dataset.arrow")
 end
 
 end
