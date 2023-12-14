@@ -239,9 +239,10 @@ function generate_random_variants_parameters_and_dataset(parsed_args)
     pval_threshold = parsed_args["pval-threshold"]
     out = parsed_args["out"]
     verbosity = parsed_args["verbosity"]
+    estimator_key = Symbol(parsed_args["estimator-key"])
     
     verbosity > 0 && @info string("Retrieving significant estimands.")
-    significant_estimands = read_significant_results(resultsfile; threshold=pval_threshold)
+    significant_estimands = read_significant_results(resultsfile; threshold=pval_threshold, estimator_key=estimator_key)
     all_rsids = unique_treatments(significant_estimands)
 
     verbosity > 0 && @info string("Looking for random MAF matching variants for each Trans-Actor.")

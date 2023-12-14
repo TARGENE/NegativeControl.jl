@@ -10,12 +10,12 @@ include(joinpath(TESTDIR, "testutils.jl"))
 @testset "Test treatment_variables and outcome_variables" begin
     estimates = make_estimates()
     # Classic estimand
-    Ψ = estimates[1].estimand
+    Ψ = estimates[1].TMLE.estimand
     @test Ψ isa TMLE.StatisticalIATE
     @test NegativeControl.treatment_variables(Ψ) == [:RSID_103, :rs10043934]
     @test NegativeControl.outcome_variables(Ψ) == [Ψ.outcome]
     # Composed estimand
-    Ψ = estimates[3].estimand
+    Ψ = estimates[3].TMLE.estimand
     @test Ψ isa ComposedEstimand
     @test NegativeControl.treatment_variables(Ψ) == [:RSID_103, :rs10043934]
     @test NegativeControl.outcome_variables(Ψ) == [Symbol("High light scatter reticulocyte percentage")]
@@ -31,7 +31,7 @@ end
         results = NegativeControl.read_significant_results(string(prefix, "." ,ext); threshold=threshold)
         @test length(results) == length(estimates)
         for (index, Ψ̋) ∈ enumerate(estimates)
-            results[index] == Ψ̋.estimand
+            results[index] == Ψ̋.TMLE.estimand
         end
     end
 

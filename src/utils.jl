@@ -26,45 +26,48 @@ Split string and remove principal components from the list.
 """
 getconfounders(v) = Symbol.(filter(x -> !occursin(r"^PC[0-9]*$", x), split_string(v)))
 
-default_statistical_test(Ψ̂; threshold=0.05) = pvalue(OneSampleTTest(Ψ̂)) < threshold
+default_statistical_test(Ψ̂::TMLE.Estimate; threshold=0.05) = pvalue(OneSampleTTest(Ψ̂)) < threshold
 
 default_statistical_test(Ψ̂::TMLE.ComposedEstimate; threshold=0.05) = 
     length(Ψ̂.estimate) > 1 ? pvalue(TMLE.OneSampleHotellingT2Test(Ψ̂)) < threshold : pvalue(TMLE.OneSampleTTest(Ψ̂)) < threshold
 
-is_significant(Ψ̂; threshold=0.05) = 
+is_significant(Ψ̂::TMLE.Estimate; threshold=0.05) = 
     default_statistical_test(Ψ̂; threshold=threshold)
 
-function read_significant_from_hdf5(filename; threshold=0.05)
+is_significant(nt; threshold=0.05, estimator_key=:TMLE) = 
+    is_significant(nt[estimator_key]; threshold=threshold)
+
+function read_significant_from_hdf5(filename; threshold=0.05, estimator_key=:TMLE)
     jldopen(filename) do io
         return mapreduce(vcat, keys(io)) do key
-            [Ψ̂.estimand for Ψ̂ ∈ io[key] if is_significant(Ψ̂; threshold=threshold)]
+            [nt[estimator_key].estimand for nt ∈ io[key] if is_significant(nt; estimator_key=estimator_key, threshold=threshold)]
         end
     end
 end
 
-function read_significant_from_jls(filename; threshold=0.05)
+function read_significant_from_jls(filename; threshold=0.05, estimator_key=:TMLE)
     results = []
     open(filename) do io
         while !eof(io)
-            Ψ̂ = deserialize(io)
-            if is_significant(Ψ̂, threshold=threshold)
-                push!(results, Ψ̂.estimand)
+            nt = deserialize(io)
+            if is_significant(nt, threshold=threshold, estimator_key=estimator_key)
+                push!(results, nt[estimator_key].estimand)
             end
         end
     end
     return results
 end
 
-read_significant_from_json(filename; threshold=0.05) = 
-    [Ψ̂.estimand for Ψ̂ ∈ TMLE.read_json(filename) if is_significant(Ψ̂; threshold=threshold)]
+read_significant_from_json(filename; threshold=0.05, estimator_key=:TMLE) = 
+    [nt[estimator_key].estimand for nt ∈ TMLE.read_json(filename) if is_significant(nt; threshold=threshold, estimator_key=estimator_key)]
 
-function read_significant_results(filename; threshold=0.05)
+function read_significant_results(filename; threshold=0.05, estimator_key=:TMLE)
     results = if endswith(filename, "hdf5")
-        read_significant_from_hdf5(filename; threshold=threshold)
+        read_significant_from_hdf5(filename; threshold=threshold, estimator_key=estimator_key)
     elseif endswith(filename, "jls")
-        read_significant_from_jls(filename; threshold=threshold)
+        read_significant_from_jls(filename; threshold=threshold, estimator_key=estimator_key)
     elseif endswith(filename, "json")
-        read_significant_from_json(filename; threshold=threshold)
+        read_significant_from_json(filename; threshold=threshold, estimator_key=estimator_key)
     else
         throw(ArgumentError("Unupported estimate file format: $filepath"))
     end

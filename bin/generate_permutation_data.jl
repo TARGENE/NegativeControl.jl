@@ -23,6 +23,10 @@ function parse_commandline()
             help = "The p-value threshold for significant results calling"
             default = 0.05
             arg_type = Float64
+        "--estimator-key"
+            help = "Estimator to use to check significance."
+            default = "TMLE"
+            arg_type = String
         "--limit"
             help = "The max number of permutation parameters to be generated"
             default = nothing

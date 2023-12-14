@@ -15,7 +15,7 @@ include(joinpath(TESTDIR, "testutils.jl"))
 
 @testset "Test permuted_estimand!" begin
     estimates = make_estimates()
-    Ψ = estimates[1].estimand
+    Ψ = estimates[1].TMLE.estimand
     @test Ψ isa TMLE.StatisticalIATE
     # Treatment and Outcome
     permutation_variables = Set([Ψ.outcome, :RSID_103])
@@ -43,7 +43,7 @@ include(joinpath(TESTDIR, "testutils.jl"))
     @test Ψpermuted.treatment_confounders == Ψ.treatment_confounders
     @test Ψpermuted.outcome_extra_covariates == Ψ.outcome_extra_covariates
     # Composed Estimand
-    Ψ = estimates[3].estimand
+    Ψ = estimates[3].TMLE.estimand
     @test Ψ isa ComposedEstimand
     outcome = Symbol("High light scatter reticulocyte percentage")
     permutation_variables = Set([:RSID_103, outcome])
@@ -58,9 +58,8 @@ include(joinpath(TESTDIR, "testutils.jl"))
     @test arg₂.outcome_extra_covariates == arg₁.outcome_extra_covariates == Ψ.args[1].outcome_extra_covariates
 end
 
-
 @testset "Test make_permutation_parameters" begin
-    estimands = [Ψ.estimand for Ψ ∈ make_estimates()]
+    estimands = [Ψ.TMLE.estimand for Ψ ∈ make_estimates()]
     expected_permuted_variables = Set([
         :rs117913124,
         :rs10043934,
@@ -102,6 +101,7 @@ end
         "dataset" => joinpath(TESTDIR, "data", "final.data.csv"),
         "results" => "tmle_output.hdf5",
         "outdir" => ".",
+        "estimator-key" => "TMLE",
         "pval-threshold" => 1e-10,
         "verbosity" => 0,
         "limit" => nothing,

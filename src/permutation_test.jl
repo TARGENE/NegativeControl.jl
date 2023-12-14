@@ -75,10 +75,11 @@ function generate_permutation_parameters_and_dataset(parsed_args)
     limit = parsed_args["limit"]
     rng = StableRNG(parsed_args["rng"])
     chunksize = parsed_args["chunksize"]
+    estimator_key = Symbol(parsed_args["estimator-key"])
 
     # Generating Permutation Parameters
     verbosity > 0 && @info string("Retrieving significant parameters.")
-    results = read_significant_results(resultsfile, threshold=pval_threshold)
+    results = read_significant_results(resultsfile, threshold=pval_threshold, estimator_key=estimator_key)
     verbosity > 0 && @info string(size(results, 1), " parameters satisfying the threshold.")
     verbosity > 0 && @info "Generating permutation parameters."
     parameters, permuted_variables = make_permutation_parameters(results; optimize=true, orders=orders)

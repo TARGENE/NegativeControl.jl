@@ -69,7 +69,7 @@ function make_estimates()
         IC = []
     )
 
-    return [IATE₁, IATE₂, jointIATE, ATE₁]
+    return [(TMLE=IATE₁,), (TMLE=IATE₂,), (TMLE=jointIATE,), (TMLE=ATE₁,)]
 end
 
 function save(estimates; prefix="tmle_output")
