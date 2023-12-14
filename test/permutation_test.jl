@@ -123,18 +123,18 @@ end
     # Only two estimates pass the threshold
     # Each estimate produces 6 new estimands
     # Total: 12 split into 3 files of chunksize 5
-    batch_1 = deserialize("permutation_estimands_1.yaml").estimands
+    batch_1 = deserialize("permutation_estimands_1.jls").estimands
     @test length(batch_1) == 5
-    batch_2 = deserialize("permutation_estimands_2.yaml").estimands
+    batch_2 = deserialize("permutation_estimands_2.jls").estimands
     @test length(batch_2) == 5
-    batch_3 = deserialize("permutation_estimands_3.yaml").estimands
+    batch_3 = deserialize("permutation_estimands_3.jls").estimands
     @test length(batch_3) == 2
 
     # Clean
     clean()
-    rm("permutation_estimands_1.yaml")
-    rm("permutation_estimands_2.yaml")
-    rm("permutation_estimands_3.yaml")
+    rm("permutation_estimands_1.jls")
+    rm("permutation_estimands_2.jls")
+    rm("permutation_estimands_3.jls")
     rm("permutation_dataset.arrow")
 end
 

@@ -19,9 +19,9 @@ function parse_commandline()
             help = "BGEN chromosome files prefix"
             required = true
         "--out"
-            help = "Path to the output .yaml file "
+            help = "Path to the output .jls file "
             arg_type = String
-            default = "random_variants_parameters.yaml"
+            default = "random_variants_parameters.jls"
         "--p"
             help = "Number of random variants per trans-actor"
             arg_type = Int

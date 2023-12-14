@@ -175,7 +175,7 @@ end
         "results" => "tmle_output.hdf5",
         "trans-actors-prefix" => joinpath(TESTDIR, "data", "trans_act"),
         "bgen-prefix" => joinpath(TESTDIR, "data", "bgen", "ukb"),
-        "out" => "random_variants_parameters.yaml",
+        "out" => "random_variants_parameters.jls",
         "pval-threshold" => 0.05,
         "estimator-key" => "TMLE",
         "verbosity" => 0,
