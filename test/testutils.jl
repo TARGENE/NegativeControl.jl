@@ -69,7 +69,23 @@ function make_estimates()
         IC = []
     )
 
-    return [(TMLE=IATE₁,), (TMLE=IATE₂,), (TMLE=jointIATE,), (TMLE=ATE₁,)]
+    failed_estimate = TargetedEstimation.FailedEstimate(
+        ATE(
+            outcome = "L50-L54 Urticaria and erythema",
+            treatment_values = (
+                rs117913124 = (case="GA", control="GG"), 
+                RSID_104 = (case="GA", control="GG")
+            ),
+            treatment_confounders = (
+                rs117913124 = (:PC1, :PC2, :PC3, :PC4, :PC5, :PC6), 
+                RSID_104 = (:PC1, :PC2, :PC3, :PC4, :PC5, :PC6)
+            ),
+            outcome_extra_covariates = ("Age-Assessment", "Genetic-Sex")
+        ),
+        "Could not fluctuate"
+    )
+
+    return [(TMLE=IATE₁,), (TMLE=IATE₂,), (TMLE=jointIATE,), (TMLE=ATE₁,), (TMLE=failed_estimate,)]
 end
 
 function save(estimates; prefix="tmle_output")

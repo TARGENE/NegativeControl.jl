@@ -26,21 +26,33 @@ Split string and remove principal components from the list.
 """
 getconfounders(v) = Symbol.(filter(x -> !occursin(r"^PC[0-9]*$", x), split_string(v)))
 
-default_statistical_test(Ψ̂::TMLE.Estimate; threshold=0.05) = pvalue(OneSampleTTest(Ψ̂)) < threshold
-
-default_statistical_test(Ψ̂::TMLE.ComposedEstimate; threshold=0.05) = 
-    length(Ψ̂.estimate) > 1 ? pvalue(TMLE.OneSampleHotellingT2Test(Ψ̂)) < threshold : pvalue(TMLE.OneSampleTTest(Ψ̂)) < threshold
-
 is_significant(Ψ̂::TMLE.Estimate; threshold=0.05) = 
-    default_statistical_test(Ψ̂; threshold=threshold)
+    pvalue(OneSampleTTest(Ψ̂)) < threshold
 
-is_significant(nt; threshold=0.05, estimator_key=:TMLE) = 
+function is_significant(Ψ̂::TMLE.ComposedEstimate; threshold=0.05)
+    sig = if length(Ψ̂.estimate) > 1 
+        pvalue(TMLE.OneSampleHotellingT2Test(Ψ̂)) < threshold
+    else 
+        pvalue(TMLE.OneSampleTTest(Ψ̂)) < threshold
+    end
+    return sig
+end
+
+"""
+For FailedEstimates
+"""
+is_significant(Ψ̂; threshold=0.05) = false
+
+"""
+For NamedTuples/Dicts stored in a results file
+"""
+is_significant(nt, estimator_key; threshold=0.05) = 
     is_significant(nt[estimator_key]; threshold=threshold)
 
 function read_significant_from_hdf5(filename; threshold=0.05, estimator_key=:TMLE)
     jldopen(filename) do io
         return mapreduce(vcat, keys(io)) do key
-            [nt[estimator_key].estimand for nt ∈ io[key] if is_significant(nt; estimator_key=estimator_key, threshold=threshold)]
+            [nt[estimator_key].estimand for nt ∈ io[key] if is_significant(nt, estimator_key, threshold=threshold)]
         end
     end
 end
@@ -50,7 +62,7 @@ function read_significant_from_jls(filename; threshold=0.05, estimator_key=:TMLE
     open(filename) do io
         while !eof(io)
             nt = deserialize(io)
-            if is_significant(nt, threshold=threshold, estimator_key=estimator_key)
+            if is_significant(nt, estimator_key; threshold=threshold)
                 push!(results, nt[estimator_key].estimand)
             end
         end
@@ -59,7 +71,7 @@ function read_significant_from_jls(filename; threshold=0.05, estimator_key=:TMLE
 end
 
 read_significant_from_json(filename; threshold=0.05, estimator_key=:TMLE) = 
-    [nt[estimator_key].estimand for nt ∈ TMLE.read_json(filename) if is_significant(nt; threshold=threshold, estimator_key=estimator_key)]
+    [nt[estimator_key].estimand for nt ∈ TMLE.read_json(filename) if is_significant(nt, estimator_key; threshold=threshold)]
 
 function read_significant_results(filename; threshold=0.05, estimator_key=:TMLE)
     results = if endswith(filename, "hdf5")

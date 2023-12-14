@@ -59,7 +59,7 @@ include(joinpath(TESTDIR, "testutils.jl"))
 end
 
 @testset "Test make_permutation_parameters" begin
-    estimands = [Ψ.TMLE.estimand for Ψ ∈ make_estimates()]
+    estimands = [Ψ.TMLE.estimand for Ψ ∈ make_estimates()[1:end-1]]
     expected_permuted_variables = Set([
         :rs117913124,
         :rs10043934,

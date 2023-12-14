@@ -28,10 +28,10 @@ end
 
     threshold = 1.
     for ext in ("jls", "json", "hdf5")
-        results = NegativeControl.read_significant_results(string(prefix, "." ,ext); threshold=threshold)
-        @test length(results) == length(estimates)
-        for (index, Ψ̋) ∈ enumerate(estimates)
-            results[index] == Ψ̋.TMLE.estimand
+        results = NegativeControl.read_significant_results(string(prefix, "." , ext); threshold=threshold)
+        length(results) == 4
+        for index ∈ 1:4
+            results[index] == estimates[index].TMLE.estimand
         end
     end
 

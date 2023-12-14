@@ -13,6 +13,7 @@ using JSON
 using HTTP
 using Statistics
 using JLD2
+using TargetedEstimation
 
 include("utils.jl")
 include("permutation_test.jl")

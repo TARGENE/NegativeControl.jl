@@ -133,7 +133,7 @@ end
     bgen_prefix = joinpath(TESTDIR, "data", "bgen", "ukb")
     trans_actors = Set(["RSID_103", "RSID_104"])
     
-    estimands = [nt.TMLE.estimand for nt ∈ make_estimates()]
+    estimands = [nt.TMLE.estimand for nt ∈ make_estimates()[1:end-1]]
     variant_map = NegativeControl.find_maf_matching_random_variants(
         trans_actors, 
         bgen_prefix,
@@ -170,7 +170,6 @@ end
 @testset "Test generate_random_variants_parameters_and_dataset" begin
     estimates = make_estimates()
     save(estimates)
-    estimands = [Ψ̂.TMLE.estimand for Ψ̂ in estimates]
     parsed_args = Dict(
         "p" => 5,
         "results" => "tmle_output.hdf5",
