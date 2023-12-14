@@ -94,7 +94,7 @@ by group of size approximately greater than min_size.
 """
 function write_parameter_files(outdir, parameters, chunksize; prefix="permutation_estimands_")
     for (index, batch) in enumerate(Iterators.partition(parameters, chunksize))
-        serialize(joinpath(outdir, string(prefix, index, ".yaml")), Configuration(estimands=batch))
+        serialize(joinpath(outdir, string(prefix, index, ".jls")), Configuration(estimands=batch))
     end
 end
 
