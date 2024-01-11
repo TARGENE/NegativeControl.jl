@@ -9,8 +9,8 @@ function parse_commandline()
         add_version = true)
 
     @add_arg_table s begin
-        "trans-actors-prefix"
-            help = "Trans acting factors in csv format"
+        "variants-to-randomize"
+            help = "Variants to randomize in .txt format"
             required = true
         "results"
             help = "CSV file containing TarGene results."

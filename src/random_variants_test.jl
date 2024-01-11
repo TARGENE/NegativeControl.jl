@@ -10,17 +10,8 @@ NotEnoughMatchingVariantsError(rsid, p, reltol) =
 
 read_snps_from_csv(path::String) = unique(CSV.read(path, DataFrame; select=[:ID, :CHR]), :ID)
 
-function trans_actors_from_prefix(trans_actors_prefix::AbstractString)
-    dir, prefix = splitdir(trans_actors_prefix)
-    dir_ = dir == "" ? "." : dir
-    trans_actors = DataFrame[]
-    for filename in readdir(dir_)
-        if startswith(filename, prefix)
-            push!(trans_actors, read_snps_from_csv(joinpath(dir, filename)))
-        end
-    end
-    return Set(vcat((df.ID for df in trans_actors)...))
-end
+get_variants_to_randomize(filepath::AbstractString) = Set(open(readlines, filepath))
+
 
 """
     update_treatment_setting!(variant::Variant, origin_variant::Variant, origin_case, origin_control)
@@ -234,7 +225,8 @@ function generate_random_variants_parameters_and_dataset(parsed_args)
     p = parsed_args["p"]
     rng = StableRNG(parsed_args["rng"])
     reltol = parsed_args["reltol"]
-    trans_actors = trans_actors_from_prefix(parsed_args["trans-actors-prefix"])
+    get_variants_to_randomize
+    trans_actors = get_variants_to_randomize(parsed_args["variants-to-randomize"])
     bgen_prefix = parsed_args["bgen-prefix"]
     pval_threshold = parsed_args["pval-threshold"]
     out = parsed_args["out"]
