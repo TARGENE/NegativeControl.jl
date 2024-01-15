@@ -219,7 +219,6 @@ function generate_random_variants_parameters_and_dataset(parsed_args)
     p = parsed_args["p"]
     rng = StableRNG(parsed_args["rng"])
     reltol = parsed_args["reltol"]
-    get_variants_to_randomize
     trans_actors = get_variants_to_randomize(parsed_args["variants-to-randomize"])
     bgen_prefix = parsed_args["bgen-prefix"]
     pval_threshold = parsed_args["pval-threshold"]
