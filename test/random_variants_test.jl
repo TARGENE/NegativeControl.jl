@@ -140,7 +140,7 @@ end
         trans_actors; 
         p=p, rng=rng, reltol=reltol, verbosity=0
     )
-    new_estimands = NegativeControl.make_random_variants_estimands(estimands, variant_map, p=p)
+    new_estimands = NegativeControl.make_random_variants_estimands(estimands, variant_map)
     # 5 new estimands for each of the 4 input estimands
     @test length(new_estimands) == 20
     # Check 5 new estimands generated from estimand 1
@@ -156,6 +156,12 @@ end
     @test expected_new_rsids == new_rsids
     # Check 5 new estimands generated from estimand 3 (composed estimand)
     for Ψ ∈ new_estimands[11:15]
+        @test all(arg.outcome == first(Ψ.args).outcome for arg in Ψ.args)
+        treatment_settings = [arg.treatment_values for arg in  Ψ.args]
+        treatment_variables = [keys(ts) for ts in treatment_settings]
+        @test length(unique(treatment_variables)) == 1
+        treatment_values = [values(ts) for ts in treatment_settings]
+        @test length(unique(treatment_values)) == length(treatment_variables)
         @test Ψ isa ComposedEstimand
         @test Ψ != estimands[3]
     end

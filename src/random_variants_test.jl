@@ -8,8 +8,6 @@ NotEnoughMatchingVariantsError(rsid, p, reltol) =
     ))
 
 
-read_snps_from_csv(path::String) = unique(CSV.read(path, DataFrame; select=[:ID, :CHR]), :ID)
-
 get_variants_to_randomize(filepath::AbstractString) = Set(open(readlines, filepath))
 
 
@@ -169,17 +167,13 @@ function find_maf_matching_random_variants(
     return variant_map
 end
 
-"""
-Each sub estimand can potentially lead to p new sub estimands. A D-dimensional composite estimand
-would lead to p^D new composed estimands. Typically p = 10, D = 9 for interactions leading to too many 
-new estimands. Instead we randomly select p for each subestimands, leading to p new composed estimands.
-"""
-function make_random_variants_estimands(Ψ::ComposedEstimand, variant_map; p=10, rng=MersenneTwister())
-    newargs = Tuple(rand(rng, make_random_variants_estimands(arg, variant_map), p) for arg ∈ Ψ.args)
+
+function make_random_variants_estimands(Ψ::ComposedEstimand, variant_map)
+    newargs = Tuple(make_random_variants_estimands(arg, variant_map) for arg ∈ Ψ.args)
     return [ComposedEstimand(Ψ.f, Tuple(args)) for args ∈ zip(newargs...)]
 end
 
-function make_random_variants_estimands(Ψ::T, variant_map; kwargs...) where T <: TMLE.Estimand
+function make_random_variants_estimands(Ψ::T, variant_map) where T <: TMLE.Estimand
     transactors = keys(variant_map)
     origin_treatment_variables = keys(Ψ.treatment_values)
     # At least one trans-actor in the parameter treatments to be processed
@@ -217,8 +211,8 @@ function make_random_variants_estimands(Ψ::T, variant_map; kwargs...) where T <
     return new_estimands
 end
 
-make_random_variants_estimands(estimands, variant_map; p=10, rng=MersenneTwister(123)) = 
-    vcat((make_random_variants_estimands(Ψ, variant_map; p=p, rng=rng) for Ψ in estimands)...)
+make_random_variants_estimands(estimands, variant_map) = 
+    vcat((make_random_variants_estimands(Ψ, variant_map) for Ψ in estimands)...)
 
 function generate_random_variants_parameters_and_dataset(parsed_args)
     resultsfile = parsed_args["results"]
@@ -243,7 +237,7 @@ function generate_random_variants_parameters_and_dataset(parsed_args)
         p=p, rng=rng, reltol=reltol, verbosity=verbosity
     )
     verbosity > 0 && @info string("Building new estimands from matched random variants.")
-    new_estimands = make_random_variants_estimands(significant_estimands, variant_map; rng=rng, p=p)
+    new_estimands = make_random_variants_estimands(significant_estimands, variant_map)
     new_estimands = groups_ordering(new_estimands, brute_force=false, do_shuffle=false)
     serialize(out, Configuration(estimands = new_estimands))
     verbosity > 0 && @info string("Done.")
