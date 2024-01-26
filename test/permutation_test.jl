@@ -95,6 +95,67 @@ end
     @test all_permuted_variables == expected_permuted_variables
 end
 
+@testset "Test filter_by_positivity_threshold" begin
+    dataset = make_dataset()
+    estimands = make_estimands()
+    permuted_estimands, permuted_variables = NegativeControl.make_permutation_parameters(estimands)
+    # No positivity constraint
+    valid_estimands = NegativeControl.permute_dataset_and_get_valid_estimands!(
+        dataset, 
+        permuted_variables, 
+        permuted_estimands; 
+        rng_seed=123, 
+        max_attempts=1,
+        positivity_constraint=nothing
+    )
+    @test Set(names(dataset)) == Set([
+        "rs10043934",
+        "rs117913124",
+        "RSID_103",
+        "RSID_104",
+        "High light scatter reticulocyte percentage",
+        "L50-L54 Urticaria and erythema",
+        "rs117913124_permuted",
+        "rs10043934_permuted",
+        "RSID_104_permuted",
+        "L50-L54 Urticaria and erythema_permuted",
+        "High light scatter reticulocyte percentage_permuted",
+        "RSID_103_permuted"
+    ])
+    @test valid_estimands == permuted_estimands
+    # Positivity constraint, 1 attempt
+    dataset = make_dataset()
+    valid_estimands = NegativeControl.permute_dataset_and_get_valid_estimands!(
+        dataset, 
+        permuted_variables, 
+        permuted_estimands; 
+        rng_seed=123, 
+        max_attempts=1,
+        positivity_constraint=0.05
+    )
+    @test length(valid_estimands) < length(permuted_estimands)
+    # Positivity constraint, 5 attempt
+    dataset = make_dataset()
+    rng = StableRNG(123)
+    log_sequence = [
+        (:info, "Initial permutation resulted in a loss of estimands, attempting again."),
+        (:info, "After attempt 2/5 #Estimands=8/12"),
+        (:info, "After attempt 3/5 #Estimands=8/12"),
+        (:info, "After attempt 4/5 #Estimands=8/12"),
+        (:info, "After attempt 5/5 #Estimands=9/12"),
+        ]
+    valid_estimands = @test_logs log_sequence... NegativeControl.permute_dataset_and_get_valid_estimands!(
+        dataset, 
+        permuted_variables, 
+        permuted_estimands; 
+        rng_seed=123, 
+        max_attempts=5,
+        positivity_constraint=0.05,
+        verbosity=1
+    );
+    @test length(valid_estimands) == 9
+end
+
 @testset "Test run_permutation_test" begin
     make_fake_outputs()
     parsed_args = Dict(
@@ -107,7 +168,9 @@ end
         "limit" => nothing,
         "rng" => 123,
         "orders" => "1,2",
-        "chunksize" => 5
+        "chunksize" => 5,
+        "positivity-constraint" => nothing,
+        "max-attempts" => 1
     )
     generate_permutation_parameters_and_dataset(parsed_args)
 

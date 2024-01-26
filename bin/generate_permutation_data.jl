@@ -43,6 +43,13 @@ function parse_commandline()
             help = "Results will be appended to outfiles every chunk"
             default = 100
             arg_type = Int
+        "--max-attempts"
+            help = "Maximum number of permutation to induce to maximize the number of permuted dataset matching the positivity constraint"
+            default = 1
+            arg_type = Int
+        "--positivity-constraint"
+            help = "Only permuted estimands passing that constraint are considered."
+            arg_type = Float64
         "--verbosity", "-v"
             help = "Verbosity level"
             arg_type = Int

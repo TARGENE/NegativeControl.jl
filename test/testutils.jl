@@ -1,38 +1,69 @@
 using TMLE
 using TargetedEstimation
 
-function make_estimates()
-    IATE₁ = TMLE.TMLEstimate(
-        estimand = IATE(
-            outcome = "High light scatter reticulocyte percentage",
-            treatment_values = (
-                rs10043934 = (case="GA", control="GG"), 
-                RSID_103 = (case="GA", control="GG")
-            ),
-            treatment_confounders = (
-                rs10043934 = (:PC1, :PC2, :PC3, :PC4, :PC5, :PC6), 
-                RSID_103 = (:PC1, :PC2, :PC3, :PC4, :PC5, :PC6)
-            ),
-            outcome_extra_covariates = ("Age-Assessment", "Genetic-Sex")
+function make_dataset(;n=100, rng=StableRNG(123))
+    return DataFrame(
+        "rs10043934" => rand(rng, ["GA", "GG", "AA"], n),
+        "rs117913124" => rand(rng, ["GA", "GG", "AA"], n),
+        "RSID_103" => rand(rng, ["GA", "GG", "AA"], n),
+        "RSID_104" => rand(rng, ["GA", "GG", "AA"], n),
+        "High light scatter reticulocyte percentage" => ones(n),
+        "L50-L54 Urticaria and erythema" =>  ones(n)
+    )
+end
+
+function make_estimands()
+    IATE₁ = IATE(
+        outcome = "High light scatter reticulocyte percentage",
+        treatment_values = (
+            rs10043934 = (case="GA", control="GG"), 
+            RSID_103 = (case="GA", control="GG")
         ),
+        treatment_confounders = (
+            rs10043934 = (:PC1, :PC2, :PC3, :PC4, :PC5, :PC6), 
+            RSID_103 = (:PC1, :PC2, :PC3, :PC4, :PC5, :PC6)
+        ),
+        outcome_extra_covariates = ("Age-Assessment", "Genetic-Sex")
+    )
+    IATE₂ = IATE(
+        outcome = "High light scatter reticulocyte percentage",
+        treatment_values = (
+            rs10043934 = (case="GA", control="GG"), 
+            RSID_103 = (case="AA", control="GA")
+        ),
+        treatment_confounders = (
+            rs10043934 = (:PC1, :PC2, :PC3, :PC4, :PC5, :PC6), 
+            RSID_103 = (:PC1, :PC2, :PC3, :PC4, :PC5, :PC6)
+        ),
+        outcome_extra_covariates = ("Age-Assessment", "Genetic-Sex")
+    )
+    ATE₁ = ATE(
+        outcome = "L50-L54 Urticaria and erythema",
+        treatment_values = (
+            rs117913124 = (case="GA", control="GG"), 
+            RSID_104 = (case="GA", control="GG")
+        ),
+        treatment_confounders = (
+            rs117913124 = (:PC1, :PC2, :PC3, :PC4, :PC5, :PC6), 
+            RSID_104 = (:PC1, :PC2, :PC3, :PC4, :PC5, :PC6)
+        ),
+        outcome_extra_covariates = ("Age-Assessment", "Genetic-Sex")
+    )
+    jointIATE = ComposedEstimand(TMLE.joint_estimand, (IATE₁, IATE₂))
+    return (IATE₁, IATE₂, jointIATE, ATE₁)
+end
+
+function make_estimates()
+    IATE₁, IATE₂, jointIATE, ATE₁ = make_estimands()
+    IATE₁ = TMLE.TMLEstimate(
+        estimand = IATE₁,
         estimate = -1.,
         std = 0.003,
         n = 10,
         IC = []
     )
     IATE₂ = TMLE.TMLEstimate(
-        estimand = IATE(
-            outcome = "High light scatter reticulocyte percentage",
-            treatment_values = (
-                rs10043934 = (case="GA", control="GG"), 
-                RSID_103 = (case="AA", control="GA")
-            ),
-            treatment_confounders = (
-                rs10043934 = (:PC1, :PC2, :PC3, :PC4, :PC5, :PC6), 
-                RSID_103 = (:PC1, :PC2, :PC3, :PC4, :PC5, :PC6)
-            ),
-            outcome_extra_covariates = ("Age-Assessment", "Genetic-Sex")
-        ),
+        estimand = IATE₂,
         estimate = -0.003,
         std = 0.003,
         n = 10,
@@ -40,7 +71,7 @@ function make_estimates()
     )
 
     jointIATE = TMLE.ComposedEstimate(
-        estimand = TMLE.ComposedEstimand(TMLE.joint_estimand, (IATE₁.estimand, IATE₂.estimand)),
+        estimand = jointIATE,
         estimates = (IATE₁, IATE₂),
         estimate = [-1., -0.003],
         cov = [
@@ -51,18 +82,7 @@ function make_estimates()
     )
 
     ATE₁ = TMLE.TMLEstimate(
-        estimand = ATE(
-            outcome = "L50-L54 Urticaria and erythema",
-            treatment_values = (
-                rs117913124 = (case="GA", control="GG"), 
-                RSID_104 = (case="GA", control="GG")
-            ),
-            treatment_confounders = (
-                rs117913124 = (:PC1, :PC2, :PC3, :PC4, :PC5, :PC6), 
-                RSID_104 = (:PC1, :PC2, :PC3, :PC4, :PC5, :PC6)
-            ),
-            outcome_extra_covariates = ("Age-Assessment", "Genetic-Sex")
-        ),
+        estimand = ATE₁,
         estimate = 0.003,
         std = 0.003,
         n = 20,
