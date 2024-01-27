@@ -54,7 +54,7 @@ function filter_by_positivity_constraint(estimands, dataset, positivity_constrai
     frequency_table = Dict()
     valid_estimands = []
     for Ψ in estimands
-        treatments = NegativeControl.treatment_variables(Ψ)
+        treatments = treatment_variables(Ψ)
         if !haskey(frequency_table, treatments)
             frequency_table[treatments] = TMLE.frequency_table(dataset, treatments)
         end
@@ -171,8 +171,11 @@ function generate_permutation_parameters_and_dataset(parsed_args)
         positivity_constraint=positivity_constraint,
         verbosity=verbosity-1
     )
+    if length(permuted_estimands) == 0
+        throw(error("No permuted estimand remaining, consider increasing the p-value threshold or the maximum number of attempts."))
+    end
     if limit !== nothing
-        permuted_estimands = permuted_estimands[1:limit]
+        permuted_estimands = permuted_estimands[1:max(limit, length(permuted_estimands))]
     end
     verbosity > 0 && @info string("Writing ", length(permuted_estimands), " permuted estimands and dataset to disk.")
     write_parameter_files(outdir, permuted_estimands, chunksize)

@@ -156,10 +156,10 @@ end
     @test length(valid_estimands) == 9
 end
 
-@testset "Test run_permutation_test" begin
+@testset "Test run_permutation_test: no positivity constraint" begin
     make_fake_outputs()
     parsed_args = Dict(
-        "dataset" => joinpath(TESTDIR, "data", "final.data.csv"),
+        "dataset" => joinpath(TESTDIR, "data", "dataset.csv"),
         "results" => "tmle_output.hdf5",
         "outdir" => ".",
         "estimator-key" => "TMLE",
@@ -198,6 +198,47 @@ end
     rm("permutation_estimands_1.jls")
     rm("permutation_estimands_2.jls")
     rm("permutation_estimands_3.jls")
+    rm("permutation_dataset.arrow")
+end
+
+@testset "Test run_permutation_test: positivity constraint" begin
+    make_fake_outputs()
+    parsed_args = Dict(
+        "dataset" => joinpath(TESTDIR, "data", "dataset.csv"),
+        "results" => "tmle_output.hdf5",
+        "outdir" => ".",
+        "estimator-key" => "TMLE",
+        "pval-threshold" => 1e-10,
+        "verbosity" => 0,
+        "limit" => nothing,
+        "rng" => 123,
+        "orders" => "1,2",
+        "chunksize" => 50,
+        "positivity-constraint" => 0.5,
+        "max-attempts" => 5
+    )
+    # None passs the positivity constraint => throws error
+    @test_throws ErrorException("No permuted estimand remaining, consider increasing the p-value threshold or the maximum number of attempts.") generate_permutation_parameters_and_dataset(parsed_args)
+
+    parsed_args["positivity-constraint"] = 0.1
+    generate_permutation_parameters_and_dataset(parsed_args)
+    # Check permutation dataset file
+    data = DataFrame(Arrow.Table(joinpath(parsed_args["outdir"], "permutation_dataset.arrow")))
+    permuted_cols = filter(x -> endswith(x, "permuted"), names(data))
+    @test Set(permuted_cols) == Set([
+        "rs10043934_permuted",
+        "High light scatter reticulocyte percentage_permuted",
+        "RSID_103_permuted"
+    ])
+    
+    # Only two estimates pass the pvalue threshold, so a maximum of 12
+    # and then only 4 make it due to positivity constraint
+    estimands = deserialize("permutation_estimands_1.jls").estimands
+    @test length(estimands) < 12
+
+    # Clean
+    clean()
+    rm("permutation_estimands_1.jls")
     rm("permutation_dataset.arrow")
 end
 
