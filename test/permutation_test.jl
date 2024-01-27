@@ -9,163 +9,237 @@ using TMLE
 using Arrow
 using Serialization
 
-results_file = joinpath("data", "summary.csv")
+TESTDIR = joinpath(pkgdir(NegativeControl), "test")
 
-@testset "Test misc functions" begin
-    # Test parse_case_control
-    @test NegativeControl.parse_case_control("2_&_1") == [2, 1]
-    @test NegativeControl.parse_case_control("AC_&_CC") == ["AC", "CC"]
-    @test NegativeControl.parse_case_control("AC_&_2") == ["AC", 2]
+include(joinpath(TESTDIR, "testutils.jl"))
 
-    # Test permuted_name
-    @test NegativeControl.permuted_name("toto") == "toto_permuted"
-
-    # Test make_permuted_col!
-    data = DataFrame(
-        A = [1, 2, 3],
-        B = [1, 2, 3]
-    )
-    NegativeControl.make_permuted_col!(data, :A; rng=StableRNG(1234))
-    @test data.A_permuted == [2, 3, 1]
-    @test !hasproperty(data, :B_permuted)
-
-    # Test make_parameter
-    param_row = (CASE = "2_&_AC", CONTROL = "1_&_CC", CONFOUNDERS="PC1_&_PC2", COVARIATES="Age_&_Sex")
-    param = NegativeControl.make_parameter(param_row, "Disease", ["rs12345", "rs56789_permuted"])
-    expected_param = NegativeControl.IATE(
-        target      = :Disease,
-        treatment   = (rs12345=(case=2, control=1), rs56789_permuted=(case="AC", control="CC")),
-        confounders = [:PC1, :PC2],
-        covariates  = [:Age, :Sex]
-    )
-    @test param.target == expected_param.target
-    @test param.confounders == expected_param.confounders
-    @test param.covariates == expected_param.covariates
-    @test param.treatment == expected_param.treatment
-
-    # Test permute_treatments
-    treatments = ["rs1234", "rs456", "sex"]
-    comb = ["disease", "rs456"]
-    target = "disease"
-    new_treatments, new_target = NegativeControl.permutation_setting(comb, treatments, target)
-    @test new_treatments == ["rs1234", "rs456_permuted", "sex"]
-    @test new_target == "disease_permuted"
-    comb = ["rs1234"]
-    new_treatments, new_target = NegativeControl.permutation_setting(comb, treatments, target)
-    @test new_treatments == ["rs1234_permuted", "rs456", "sex"]
-    @test new_target == target
+@testset "Test permuted_estimand!" begin
+    estimates = make_estimates()
+    Ψ = estimates[1].TMLE.estimand
+    @test Ψ isa TMLE.StatisticalIATE
+    # Treatment and Outcome
+    permutation_variables = Set([Ψ.outcome, :RSID_103])
+    Ψpermuted = NegativeControl.permuted_estimand!(permutation_variables, Ψ)
+    @test Ψpermuted.outcome == NegativeControl.permuted_name(Ψ.outcome)
+    @test keys(Ψpermuted.treatment_values) == (:RSID_103_permuted, :rs10043934)
+    @test values(Ψpermuted.treatment_values) == values(Ψ.treatment_values)
+    @test keys(Ψpermuted.treatment_confounders) == (:RSID_103_permuted, :rs10043934)
+    @test values(Ψpermuted.treatment_confounders) == values(Ψ.treatment_confounders)
+    @test Ψpermuted.outcome_extra_covariates == Ψ.outcome_extra_covariates
+    # Treatment only
+    permutation_variables = Set([:rs10043934])
+    Ψpermuted = NegativeControl.permuted_estimand!(permutation_variables, Ψ)
+    @test Ψpermuted.outcome == Ψ.outcome
+    @test keys(Ψpermuted.treatment_values) == (:RSID_103, :rs10043934_permuted)
+    @test values(Ψpermuted.treatment_values) == values(Ψ.treatment_values)
+    @test keys(Ψpermuted.treatment_confounders) == (:RSID_103, :rs10043934_permuted)
+    @test values(Ψpermuted.treatment_confounders) == values(Ψ.treatment_confounders)
+    @test Ψpermuted.outcome_extra_covariates == Ψ.outcome_extra_covariates
+    # Outcome only
+    permutation_variables = Set([Ψ.outcome])
+    Ψpermuted = NegativeControl.permuted_estimand!(permutation_variables, Ψ)
+    @test Ψpermuted.outcome == NegativeControl.permuted_name(Ψ.outcome)
+    @test Ψpermuted.treatment_values == Ψ.treatment_values
+    @test Ψpermuted.treatment_confounders == Ψ.treatment_confounders
+    @test Ψpermuted.outcome_extra_covariates == Ψ.outcome_extra_covariates
+    # Composed Estimand
+    Ψ = estimates[3].TMLE.estimand
+    @test Ψ isa ComposedEstimand
+    outcome = Symbol("High light scatter reticulocyte percentage")
+    permutation_variables = Set([:RSID_103, outcome])
+    Ψpermuted = NegativeControl.permuted_estimand!(permutation_variables, Ψ)
+    arg₁ = Ψpermuted.args[1]
+    arg₂ = Ψpermuted.args[2]
+    @test Ψpermuted.f == Ψ.f
+    @test arg₁.outcome == arg₂.outcome == NegativeControl.permuted_name(outcome)
+    @test keys(arg₁.treatment_values) == keys(arg₂.treatment_values) == (:RSID_103_permuted, :rs10043934)
+    @test values(arg₁.treatment_values) == values(Ψ.args[1].treatment_values)
+    @test values(arg₂.treatment_values) == values(Ψ.args[2].treatment_values)
+    @test arg₂.outcome_extra_covariates == arg₁.outcome_extra_covariates == Ψ.args[1].outcome_extra_covariates
 end
 
-
 @testset "Test make_permutation_parameters" begin
-    results = NegativeControl.retrieve_significant_results(results_file; threshold=:PVALUE => 1)
-    # Only looking at first 4 rows corresponding to two different treatments 
-    # and 3 targets
-    tocheck = 4
-    results = results[1:tocheck, :]
-    # First check for order 1 combinations: 
-    # For each parameter there are 3 possible permutations
-    # = 12 paramters
-    parameters = NegativeControl.make_permutation_parameters(results, [1])
-    expected_parameters = [
-        IATE(Symbol("High light scatter reticulocyte percentage_permuted"), (rs10043934 = (case = 2, control = 0), RSID_103 = (case = 1, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
-        IATE(Symbol("High light scatter reticulocyte percentage_permuted"), (rs10043934 = (case = 1, control = 0), RSID_103 = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
-        IATE(Symbol("O68 Labour and delivery complicated by foetal stress [distress]_permuted"), (rs10043934 = (case = 1, control = 0), RSID_103 = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
-        IATE(Symbol("High light scatter reticulocyte percentage"), (rs10043934 = (case = 2, control = 0), RSID_103_permuted = (case = 1, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
-        IATE(Symbol("High light scatter reticulocyte percentage"), (rs10043934 = (case = 1, control = 0), RSID_103_permuted = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
-        IATE(Symbol("O68 Labour and delivery complicated by foetal stress [distress]"), (rs10043934 = (case = 1, control = 0), RSID_103_permuted = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
-        IATE(Symbol("High light scatter reticulocyte percentage"), (rs10043934_permuted = (case = 2, control = 0), RSID_103 = (case = 1, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
-        IATE(Symbol("High light scatter reticulocyte percentage"), (rs10043934_permuted = (case = 1, control = 0), RSID_103 = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
-        IATE(Symbol("O68 Labour and delivery complicated by foetal stress [distress]"), (rs10043934_permuted = (case = 1, control = 0), RSID_103 = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
-        IATE(Symbol("E20-E35 Disorders of other endocrine glands_permuted"), (rs10420720 = (case = 1, control = 0), RSID_198 = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
-        IATE(Symbol("E20-E35 Disorders of other endocrine glands"), (rs10420720 = (case = 1, control = 0), RSID_198_permuted = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
-        IATE(Symbol("E20-E35 Disorders of other endocrine glands"), (rs10420720_permuted = (case = 1, control = 0), RSID_198 = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")])
-    ]
-    @test parameters == expected_parameters
+    estimands = [Ψ.TMLE.estimand for Ψ ∈ make_estimates()[1:end-1]]
+    expected_permuted_variables = Set([
+        :rs117913124,
+        :rs10043934,
+        :RSID_104,
+        Symbol("L50-L54 Urticaria and erythema"),
+        Symbol("High light scatter reticulocyte percentage"),
+        :RSID_103
+    ])
+    # Each estimand has 2 treatment variables and 1 outcome
+    # Each estimand will thus lead to 3 new permutation estimands
+    # A total of 12
+    permutation_estimands, all_permuted_variables = NegativeControl.make_permutation_parameters(estimands; optimize=false, orders=(1,))
+    @test length(permutation_estimands) == 12
+    @test all(values(Ψ.treatment_values) == values(estimands[1].treatment_values) for Ψ ∈ permutation_estimands[1:3])
+    @test all(values(Ψ.treatment_values) == values(estimands[2].treatment_values) for Ψ ∈ permutation_estimands[4:6])
+    @test all(Ψ isa ComposedEstimand for Ψ ∈ permutation_estimands[7:9])
+    @test all(values(Ψ.treatment_values) == values(estimands[4].treatment_values) for Ψ ∈ permutation_estimands[10:12])
 
+    @test all_permuted_variables == expected_permuted_variables
     # For each of the 4 parameters there are:
     # - 3 x order 1 permutations
     # - 3 x order 2 permutations
     # - 1 order 3 permutation
     # = 7 parameters
-    # Total: 7*4 = 28 parameters
-    # Those parameters should be generated in optimal estimation order 
-    # to save computations
-    parameters = NegativeControl.make_permutation_parameters(results, [1,2,3])
-    @test size(parameters, 1) == 7*4
-    expected_parameters = [
-        IATE(Symbol("High light scatter reticulocyte percentage_permuted"), (rs10043934 = (case = 2, control = 0), RSID_103 = (case = 1, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
-        IATE(Symbol("High light scatter reticulocyte percentage_permuted"), (rs10043934 = (case = 1, control = 0), RSID_103 = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
-        IATE(Symbol("O68 Labour and delivery complicated by foetal stress [distress]_permuted"), (rs10043934 = (case = 1, control = 0), RSID_103 = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
-        IATE(Symbol("High light scatter reticulocyte percentage"), (rs10043934 = (case = 2, control = 0), RSID_103_permuted = (case = 1, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
-        IATE(Symbol("High light scatter reticulocyte percentage"), (rs10043934 = (case = 1, control = 0), RSID_103_permuted = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
-        IATE(Symbol("High light scatter reticulocyte percentage_permuted"), (rs10043934 = (case = 2, control = 0), RSID_103_permuted = (case = 1, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
-        IATE(Symbol("High light scatter reticulocyte percentage_permuted"), (rs10043934 = (case = 1, control = 0), RSID_103_permuted = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
-        IATE(Symbol("O68 Labour and delivery complicated by foetal stress [distress]"), (rs10043934 = (case = 1, control = 0), RSID_103_permuted = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
-        IATE(Symbol("O68 Labour and delivery complicated by foetal stress [distress]_permuted"), (rs10043934 = (case = 1, control = 0), RSID_103_permuted = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
-        IATE(Symbol("High light scatter reticulocyte percentage"), (rs10043934_permuted = (case = 2, control = 0), RSID_103 = (case = 1, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
-        IATE(Symbol("High light scatter reticulocyte percentage"), (rs10043934_permuted = (case = 1, control = 0), RSID_103 = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
-        IATE(Symbol("High light scatter reticulocyte percentage_permuted"), (rs10043934_permuted = (case = 2, control = 0), RSID_103 = (case = 1, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
-        IATE(Symbol("High light scatter reticulocyte percentage_permuted"), (rs10043934_permuted = (case = 1, control = 0), RSID_103 = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
-        IATE(Symbol("O68 Labour and delivery complicated by foetal stress [distress]"), (rs10043934_permuted = (case = 1, control = 0), RSID_103 = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
-        IATE(Symbol("O68 Labour and delivery complicated by foetal stress [distress]_permuted"), (rs10043934_permuted = (case = 1, control = 0), RSID_103 = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
-        IATE(Symbol("High light scatter reticulocyte percentage"), (rs10043934_permuted = (case = 2, control = 0), RSID_103_permuted = (case = 1, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
-        IATE(Symbol("High light scatter reticulocyte percentage"), (rs10043934_permuted = (case = 1, control = 0), RSID_103_permuted = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
-        IATE(Symbol("High light scatter reticulocyte percentage_permuted"), (rs10043934_permuted = (case = 2, control = 0), RSID_103_permuted = (case = 1, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
-        IATE(Symbol("High light scatter reticulocyte percentage_permuted"), (rs10043934_permuted = (case = 1, control = 0), RSID_103_permuted = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
-        IATE(Symbol("O68 Labour and delivery complicated by foetal stress [distress]"), (rs10043934_permuted = (case = 1, control = 0), RSID_103_permuted = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
-        IATE(Symbol("O68 Labour and delivery complicated by foetal stress [distress]_permuted"), (rs10043934_permuted = (case = 1, control = 0), RSID_103_permuted = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
-        IATE(Symbol("E20-E35 Disorders of other endocrine glands_permuted"), (rs10420720 = (case = 1, control = 0), RSID_198 = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
-        IATE(Symbol("E20-E35 Disorders of other endocrine glands"), (rs10420720 = (case = 1, control = 0), RSID_198_permuted = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
-        IATE(Symbol("E20-E35 Disorders of other endocrine glands_permuted"), (rs10420720 = (case = 1, control = 0), RSID_198_permuted = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
-        IATE(Symbol("E20-E35 Disorders of other endocrine glands"), (rs10420720_permuted = (case = 1, control = 0), RSID_198 = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
-        IATE(Symbol("E20-E35 Disorders of other endocrine glands_permuted"), (rs10420720_permuted = (case = 1, control = 0), RSID_198 = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
-        IATE(Symbol("E20-E35 Disorders of other endocrine glands"), (rs10420720_permuted = (case = 1, control = 0), RSID_198_permuted = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
-        IATE(Symbol("E20-E35 Disorders of other endocrine glands_permuted"), (rs10420720_permuted = (case = 1, control = 0), RSID_198_permuted = (case = 2, control = 0)), [:PC1, :PC2, :PC3, :PC4, :PC5, :PC6], [Symbol("Age-Assessment"), Symbol("Genetic-Sex")]),
-    ]
-    @test parameters == expected_parameters
+    # Total: 7*4 = 28 permutation estimands
+    permutation_estimands, all_permuted_variables = NegativeControl.make_permutation_parameters(estimands; optimize=false, orders=(1, 2, 3))
+    @test length(permutation_estimands) == 28
+    @test all(values(Ψ.treatment_values) == values(estimands[1].treatment_values) for Ψ ∈ permutation_estimands[1:7])
+    @test all(values(Ψ.treatment_values) == values(estimands[2].treatment_values) for Ψ ∈ permutation_estimands[8:14])
+    @test all(Ψ isa ComposedEstimand for Ψ ∈ permutation_estimands[15:21])
+    @test all(values(Ψ.treatment_values) == values(estimands[4].treatment_values) for Ψ ∈ permutation_estimands[22:28])
+
+    @test all_permuted_variables == expected_permuted_variables
 end
 
-@testset "Test run_permutation_test" begin
-    outdir = "resultdir"
-    ispath(outdir) || mkdir(outdir)
+@testset "Test filter_by_positivity_threshold" begin
+    dataset = make_dataset()
+    estimands = make_estimands()
+    permuted_estimands, permuted_variables = NegativeControl.make_permutation_parameters(estimands)
+    # No positivity constraint
+    valid_estimands = NegativeControl.permute_dataset_and_get_valid_estimands!(
+        dataset, 
+        permuted_variables, 
+        permuted_estimands; 
+        rng_seed=123, 
+        max_attempts=1,
+        positivity_constraint=nothing
+    )
+    @test Set(names(dataset)) == Set([
+        "rs10043934",
+        "rs117913124",
+        "RSID_103",
+        "RSID_104",
+        "High light scatter reticulocyte percentage",
+        "L50-L54 Urticaria and erythema",
+        "rs117913124_permuted",
+        "rs10043934_permuted",
+        "RSID_104_permuted",
+        "L50-L54 Urticaria and erythema_permuted",
+        "High light scatter reticulocyte percentage_permuted",
+        "RSID_103_permuted"
+    ])
+    @test valid_estimands == permuted_estimands
+    # Positivity constraint, 1 attempt
+    dataset = make_dataset()
+    valid_estimands = NegativeControl.permute_dataset_and_get_valid_estimands!(
+        dataset, 
+        permuted_variables, 
+        permuted_estimands; 
+        rng_seed=123, 
+        max_attempts=1,
+        positivity_constraint=0.05
+    )
+    @test length(valid_estimands) < length(permuted_estimands)
+    # Positivity constraint, 5 attempt
+    dataset = make_dataset()
+    rng = StableRNG(123)
+    log_sequence = [
+        (:info, "Initial permutation resulted in a loss of estimands, attempting again."),
+        (:info, "After attempt 2/5 #Estimands=8/12"),
+        (:info, "After attempt 3/5 #Estimands=8/12"),
+        (:info, "After attempt 4/5 #Estimands=8/12"),
+        (:info, "After attempt 5/5 #Estimands=9/12"),
+        ]
+    valid_estimands = @test_logs log_sequence... NegativeControl.permute_dataset_and_get_valid_estimands!(
+        dataset, 
+        permuted_variables, 
+        permuted_estimands; 
+        rng_seed=123, 
+        max_attempts=5,
+        positivity_constraint=0.05,
+        verbosity=1
+    );
+    @test length(valid_estimands) == 9
+end
+
+@testset "Test run_permutation_test: no positivity constraint" begin
+    make_fake_outputs()
     parsed_args = Dict(
-        "dataset" => joinpath("data", "final.data.csv"),
-        "results" => joinpath("data", "summary.csv"),
-        "outdir" => outdir,
-        "pval-col" => "PVALUE",
-        "pval-threshold" => 0.05,
+        "dataset" => joinpath(TESTDIR, "data", "dataset.csv"),
+        "results" => "tmle_output.hdf5",
+        "outdir" => ".",
+        "estimator-key" => "TMLE",
+        "pval-threshold" => 1e-10,
         "verbosity" => 0,
-        "limit" => 12,
+        "limit" => nothing,
         "rng" => 123,
-        "orders" => "1",
-        "chunksize" => 5
-    )    
+        "orders" => "1,2",
+        "chunksize" => 5,
+        "positivity-constraint" => nothing,
+        "max-attempts" => 1
+    )
     generate_permutation_parameters_and_dataset(parsed_args)
 
     # Check permutation dataset file
     data = DataFrame(Arrow.Table(joinpath(parsed_args["outdir"], "permutation_dataset.arrow")))
-    source_data = CSV.read(parsed_args["dataset"], DataFrame)
-    results = NegativeControl.retrieve_significant_results(
-        parsed_args["results"]; 
-        threshold=Symbol(parsed_args["pval-col"]) => parsed_args["pval-threshold"]
-    )
-    treatment_cols = unique(reduce(vcat, [split(x, "_&_") for x in results[!, :TREATMENTS]]))
-    target_cols = unique(results.TARGET)
-
-    for colname in vcat(treatment_cols, target_cols)
-        @test data[!, colname] !== data[!, NegativeControl.permuted_name(colname)]
-    end
+    permuted_cols = filter(x -> endswith(x, "permuted"), names(data))
+    @test Set(permuted_cols) == Set([
+        "rs10043934_permuted",
+        "High light scatter reticulocyte percentage_permuted",
+        "RSID_103_permuted"
+    ])
     
-    # Check parameter files
-    all_parameters = TMLE.Parameter[]
-    for index in 1:3
-        params_group = parameters_from_yaml(joinpath(outdir, string("permutation_param_", index, ".yaml")))
-        append!(all_parameters, params_group)
-    end
-    @test length(all_parameters) == 12
+    # Only two estimates pass the threshold
+    # Each estimate produces 6 new estimands
+    # Total: 12 split into 3 files of chunksize 5
+    batch_1 = deserialize("permutation_estimands_1.jls").estimands
+    @test length(batch_1) == 5
+    batch_2 = deserialize("permutation_estimands_2.jls").estimands
+    @test length(batch_2) == 5
+    batch_3 = deserialize("permutation_estimands_3.jls").estimands
+    @test length(batch_3) == 2
+
     # Clean
-    rm(outdir, force=true, recursive=true)
+    clean()
+    rm("permutation_estimands_1.jls")
+    rm("permutation_estimands_2.jls")
+    rm("permutation_estimands_3.jls")
+    rm("permutation_dataset.arrow")
+end
+
+@testset "Test run_permutation_test: positivity constraint" begin
+    make_fake_outputs()
+    parsed_args = Dict(
+        "dataset" => joinpath(TESTDIR, "data", "dataset.csv"),
+        "results" => "tmle_output.hdf5",
+        "outdir" => ".",
+        "estimator-key" => "TMLE",
+        "pval-threshold" => 1e-10,
+        "verbosity" => 0,
+        "limit" => nothing,
+        "rng" => 123,
+        "orders" => "1,2",
+        "chunksize" => 50,
+        "positivity-constraint" => 0.5,
+        "max-attempts" => 5
+    )
+    # None passs the positivity constraint => throws error
+    @test_throws ErrorException("No permuted estimand remaining, consider increasing the p-value threshold or the maximum number of attempts.") generate_permutation_parameters_and_dataset(parsed_args)
+
+    parsed_args["positivity-constraint"] = 0.1
+    generate_permutation_parameters_and_dataset(parsed_args)
+    # Check permutation dataset file
+    data = DataFrame(Arrow.Table(joinpath(parsed_args["outdir"], "permutation_dataset.arrow")))
+    permuted_cols = filter(x -> endswith(x, "permuted"), names(data))
+    @test Set(permuted_cols) == Set([
+        "rs10043934_permuted",
+        "High light scatter reticulocyte percentage_permuted",
+        "RSID_103_permuted"
+    ])
+    
+    # Only two estimates pass the pvalue threshold, so a maximum of 12
+    # and then only 4 make it due to positivity constraint
+    estimands = deserialize("permutation_estimands_1.jls").estimands
+    @test length(estimands) < 12
+
+    # Clean
+    clean()
+    rm("permutation_estimands_1.jls")
+    rm("permutation_dataset.arrow")
 end
 
 end

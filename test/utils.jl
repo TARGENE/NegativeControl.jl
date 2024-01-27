@@ -3,23 +3,53 @@ module TestUtils
 using Test
 using NegativeControl
 
-@testset "Test misc utils" begin
-    # Test split_string
-    @test NegativeControl.split_string("AC_&_CC") == ["AC", "CC"]
+TESTDIR = joinpath(pkgdir(NegativeControl), "test")
 
-    # Test get confounders
-    @test NegativeControl.getconfounders("PC1_&_PC2_&_PC3_&_PC4_&_Age") == [:Age]
-    @test NegativeControl.getconfounders("PC1_&_PC2_&_PC3_&_PC5") == []
+include(joinpath(TESTDIR, "testutils.jl"))
+
+@testset "Test treatment_variables and outcome_variables" begin
+    estimates = make_estimates()
+    # Classic estimand
+    Ψ = estimates[1].TMLE.estimand
+    @test Ψ isa TMLE.StatisticalIATE
+    @test NegativeControl.treatment_variables(Ψ) == [:RSID_103, :rs10043934]
+    @test NegativeControl.outcome_variables(Ψ) == [Ψ.outcome]
+    # Composed estimand
+    Ψ = estimates[3].TMLE.estimand
+    @test Ψ isa ComposedEstimand
+    @test NegativeControl.treatment_variables(Ψ) == [:RSID_103, :rs10043934]
+    @test NegativeControl.outcome_variables(Ψ) == [Symbol("High light scatter reticulocyte percentage")]
 end
 
-@testset "Test retrieve_significant_results" begin
-    results_file = joinpath("data", "summary.csv")
-    # The last is an ATE and filtered
-    results = NegativeControl.retrieve_significant_results(results_file; threshold=:PVALUE => 1)
-    @test size(results) == (8, 15)
-    # With another P-value column constraint
-    results = NegativeControl.retrieve_significant_results(results_file; threshold=:ADJUSTED_PVALUE => 0.9)
-    @test size(results) == (7, 15)
+@testset "Test read_significant_results" begin
+    prefix = "tmle_output"
+    estimates = make_estimates()
+    save(estimates;prefix=prefix)
+
+    threshold = 1.
+    for ext in ("jls", "json", "hdf5")
+        results = NegativeControl.read_significant_results(string(prefix, "." , ext); threshold=threshold)
+        length(results) == 4
+        for index ∈ 1:4
+            results[index] == estimates[index].TMLE.estimand
+        end
+    end
+
+    threshold = 1e-9
+    for ext in ("jls", "json", "hdf5")
+        results = NegativeControl.read_significant_results(string(prefix, "." ,ext); threshold=threshold)
+        @test length(results) == 2
+    end
+
+    threshold = 1e-100
+    for ext in ("jls", "json", "hdf5")
+        results = NegativeControl.read_significant_results(string(prefix, "." ,ext); threshold=threshold)
+        @test length(results) == 0
+    end
+
+    clean()
 end
 
 end
+
+true

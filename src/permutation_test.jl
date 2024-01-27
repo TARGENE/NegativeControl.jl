@@ -1,89 +1,142 @@
 
-permuted_name(colname) = string(colname, "_permuted")
+permuted_name(name) = Symbol(name, :_permuted)
 
+function permuted_estimand!(permutation_variables::Set, Ψ::ComposedEstimand)
+    newargs = Tuple(permuted_estimand!(copy(permutation_variables), arg) for arg in Ψ.args)
+    return ComposedEstimand(Ψ.f, newargs)
+end
 
-function permutation_setting(comb, treatments, target)
-    new_treatments = []
-    for treatment in treatments
-        if treatment ∈ comb
-            push!(new_treatments, permuted_name(treatment))
-        else
-            push!(new_treatments, treatment)
-        end
+function permuted_estimand!(permutation_variables::Set, Ψ::T) where T
+    outcome = if Ψ.outcome ∈ permutation_variables
+        delete!(permutation_variables, Ψ.outcome)
+        permuted_name(Ψ.outcome)
+    else
+        Ψ.outcome
     end
-    new_target = target ∈ comb ? permuted_name(target) : target
-    return new_treatments, new_target
+
+    permuted_treatments = Tuple(tn ∈ permutation_variables ? permuted_name(tn) : tn for tn in keys(Ψ.treatment_values))
+
+    return T(
+        outcome = outcome,
+        treatment_values = NamedTuple{permuted_treatments}(values(Ψ.treatment_values)),
+        treatment_confounders = NamedTuple{permuted_treatments}(values(Ψ.treatment_confounders)),
+        outcome_extra_covariates = Ψ.outcome_extra_covariates
+    )
 end
 
 make_permuted_col!(data, col; rng=StableRNG(123)) = 
     data[!, permuted_name(col)] = shuffle(rng, data[!, col])
 
-"""
-Rewrite the TMLE source datafile with additional permuted treatment columns
-"""
-function write_negative_control_dataset(outfile, datafilepath, results; rng=StableRNG(123))
-    data = instantiate_dataset(datafilepath)
-    treatment_cols = unique(reduce(vcat, [split(x, "_&_") for x in results[!, :TREATMENTS]]))
-    target_cols = unique(results.TARGET)
-    for col in vcat(treatment_cols, target_cols)
-        make_permuted_col!(data, col; rng=rng)
+function permute_dataset!(dataset, variables; rng=StableRNG(123))
+    for colname in variables
+        make_permuted_col!(dataset, colname; rng=rng)
     end
-    Arrow.write(outfile, data)
 end
 
-function parse_case_control(c)
-    c_string = split_string(c)
-    final_c = Vector(undef, size(c_string, 1))
-    for index in eachindex(final_c)
-        c_ = tryparse(Int, c_string[index])
-        final_c[index] = c_ === nothing ? c_string[index] : c_
-    end
-    return final_c
-end
-
-function make_parameters(df, target, treatments)
-    params = Vector{IATE}(undef, size(df, 1))
-    for (index, param_row) in enumerate(eachrow(df))
-        params[index] = make_parameter(param_row, target, treatments)
-    end
-    return params
-end
-
-function make_parameter(param_row, target, treatments)
-    case = parse_case_control(param_row.CASE)
-    control = parse_case_control(param_row.CONTROL)
-    treatment = NamedTuple{Tuple(Symbol.(treatments))}([(case=cs, control=ct) for (cs, ct) in zip(case, control)])
-    return IATE(
-        target      = Symbol(target),
-        treatment   = treatment,
-        confounders = Symbol.(split_string(param_row.CONFOUNDERS)),
-        covariates  = getcovariates(param_row.COVARIATES) 
+function update_valid_estimands!(valid_estimands, Ψ::ComposedEstimand, frequency_table; positivity_constraint=0.01)
+    new_args = filter(
+        x -> TMLE.satisfies_positivity(x, frequency_table, positivity_constraint=positivity_constraint), 
+        Ψ.args
     )
+    isempty(new_args) && return
+    push!(valid_estimands, ComposedEstimand(Ψ.f, new_args))
+end
+
+function update_valid_estimands!(valid_estimands, Ψ, frequency_table; positivity_constraint=0.01)
+    if TMLE.satisfies_positivity(Ψ, frequency_table, positivity_constraint=positivity_constraint)
+        push!(valid_estimands, Ψ)
+    end
+end
+
+filter_by_positivity_constraint(estimands, dataset, positivity_constraint::Nothing) = estimands
+
+function filter_by_positivity_constraint(estimands, dataset, positivity_constraint=0.01)
+    frequency_table = Dict()
+    valid_estimands = []
+    for Ψ in estimands
+        treatments = treatment_variables(Ψ)
+        if !haskey(frequency_table, treatments)
+            frequency_table[treatments] = TMLE.frequency_table(dataset, treatments)
+        end
+        update_valid_estimands!(valid_estimands, Ψ, frequency_table[treatments],
+            positivity_constraint=positivity_constraint
+        )
+    end
+    return valid_estimands
+end
+
+function permute_dataset_and_get_valid_estimands!(dataset, variables, estimands; 
+    rng_seed=123, 
+    max_attempts=1,
+    positivity_constraint=0.01,
+    verbosity=0
+    )
+    n_estimands = length(estimands)
+    permute_dataset!(dataset, variables; rng=StableRNG(rng_seed))
+    valid_estimands = filter_by_positivity_constraint(
+        estimands, 
+        dataset, 
+        positivity_constraint
+    )
+    # Return fast if only one attempt or all estimands already pass the constraint
+    if max_attempts == 1 || length(valid_estimands) == n_estimands
+        return valid_estimands
+    end
+    verbosity > 0 && @info(string("Initial permutation resulted in a loss of estimands, attempting again."))
+    # We keep track of the best seed to reproduce the best permutation
+    best_seed = rng_seed
+    for attempt in 2:max_attempts
+        rng_seed += 1
+        rng = StableRNG(rng_seed)
+        permute_dataset!(dataset, variables; rng=rng)
+        attempt_valid_estimands = filter_by_positivity_constraint(
+            estimands, 
+            dataset,
+            positivity_constraint
+        )
+        verbosity > 0 && @info(string(
+            "After attempt ", attempt, "/", max_attempts, 
+            " #Estimands=", length(attempt_valid_estimands), "/", n_estimands
+        ))
+        # Update valid_estimands if a better permutation has been found
+        if length(attempt_valid_estimands) > length(valid_estimands)
+            best_seed = rng_seed
+            valid_estimands = attempt_valid_estimands
+        end
+        # Return fast if all estimands pass the constraint
+        length(valid_estimands) == n_estimands && return valid_estimands
+    end
+
+    # If we got out the loop, it means no optimal permutation has been found
+    # we reproduce the best one
+    permute_dataset!(dataset, variables; rng=StableRNG(best_seed))
+
+    return valid_estimands
 end
 
 """
 New parameters are generated by permuting treatment and target columns
 at each order <= interaction order.
 """
-function make_permutation_parameters(results, orders)
-    parameters = IATE[]
-    for (treatments, treatment_grp) in pairs(groupby(results, :TREATMENTS))
-        treatments = split_string.(treatments.TREATMENTS)   
-        for (target, target_grp) in pairs(groupby(treatment_grp, :TARGET))
-            target = target.TARGET
-            for order in orders
-                combs = combinations(vcat(treatments, target), order) 
-                for comb in combs
-                    new_treatment, new_target = permutation_setting(comb, treatments, target)
-                    parameters = vcat(
-                        parameters, 
-                        make_parameters(target_grp, new_target, new_treatment),
-                    )
-                end
+function make_permutation_parameters(estimands; optimize=true, orders=(1,))
+    parameters = []
+    all_permuted_variables = Set{Symbol}([])
+    for Ψ ∈ estimands
+        treatments = treatment_variables(Ψ)
+        outcomes = outcome_variables(Ψ)
+        variables = vcat(treatments, outcomes)
+        for order in orders
+            for permutation_variables in combinations(variables, order)
+                permutation_variables = Set(permutation_variables)
+                union!(all_permuted_variables, permutation_variables)
+                push!(parameters, permuted_estimand!(permutation_variables, Ψ))
             end
         end
     end
-    return optimize_ordering(parameters)
+    if optimize
+        parameters = groups_ordering(parameters, brute_force=false, do_shuffle=false)
+    end
+    return parameters, all_permuted_variables
 end
 
 function generate_permutation_parameters_and_dataset(parsed_args)
@@ -91,33 +144,43 @@ function generate_permutation_parameters_and_dataset(parsed_args)
     datafile = parsed_args["dataset"]
     resultsfile = parsed_args["results"]
     outdir = parsed_args["outdir"]
-    pval_col = parsed_args["pval-col"]
     pval_threshold = parsed_args["pval-threshold"]    
     verbosity = parsed_args["verbosity"]
     orders = parse.(Int, split(parsed_args["orders"], ","))
     limit = parsed_args["limit"]
-    rng = StableRNG(parsed_args["rng"])
+    rng_seed = parsed_args["rng"]
+    max_attempts = parsed_args["max-attempts"]
     chunksize = parsed_args["chunksize"]
+    estimator_key = Symbol(parsed_args["estimator-key"])
+    positivity_constraint = parsed_args["positivity-constraint"]
 
     # Generating Permutation Parameters
     verbosity > 0 && @info string("Retrieving significant parameters.")
-    results = retrieve_significant_results(resultsfile, threshold=pval_col => pval_threshold)
-    verbosity > 0 && @info string(size(results, 1), " parameters satisfying the threshold.")
-    verbosity > 0 && @info "Generating permutation parameters."
-    parameters = make_permutation_parameters(results, orders)
-    if limit !== nothing
-        parameters = parameters[1:limit]
-    end
-    verbosity > 0 && @info string(size(parameters, 1), " parameters will be estimated.")
-    write_parameter_files(outdir, parameters, chunksize)
-    
-    # Building Permutation Dataset
-    verbosity > 0 && @info "Building permutation dataset"
-    write_negative_control_dataset(
-        joinpath(outdir, "permutation_dataset.arrow"), 
-        datafile, 
-        results; 
-        rng=rng
+    results = read_significant_results(resultsfile, threshold=pval_threshold, estimator_key=estimator_key)
+    verbosity > 0 && @info string(size(results, 1), " estimands satisfying the p-value threshold.")
+    verbosity > 0 && @info "Generating permutated estimands."
+    permuted_estimands, permuted_variables = make_permutation_parameters(results; optimize=true, orders=orders)
+    dataset = instantiate_dataset(datafile)
+    verbosity > 0 && @info string("Finding a good permutation over ", max_attempts, " attemps.")
+    permuted_estimands = permute_dataset_and_get_valid_estimands!(
+        dataset, 
+        permuted_variables, 
+        permuted_estimands; 
+        rng_seed=rng_seed, 
+        max_attempts=max_attempts,
+        positivity_constraint=positivity_constraint,
+        verbosity=verbosity-1
     )
+    if length(permuted_estimands) == 0
+        throw(error("No permuted estimand remaining, consider increasing the p-value threshold or the maximum number of attempts."))
+    end
+    if limit !== nothing
+        permuted_estimands = permuted_estimands[1:max(limit, length(permuted_estimands))]
+    end
+    verbosity > 0 && @info string("Writing ", length(permuted_estimands), " permuted estimands and dataset to disk.")
+    write_parameter_files(outdir, permuted_estimands, chunksize)
+    Arrow.write(joinpath(outdir, "permutation_dataset.arrow"), dataset)
+
     verbosity > 0 && @info "Done."
+    return 0
 end

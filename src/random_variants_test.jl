@@ -8,69 +8,32 @@ NotEnoughMatchingVariantsError(rsid, p, reltol) =
     ))
 
 
-read_snps_from_csv(path::String) = unique(CSV.read(path, DataFrame; select=[:ID, :CHR]), :ID)
+get_variants_to_randomize(filepath::AbstractString) = Set(open(readlines, filepath))
 
-function trans_actors_from_prefix(trans_actors_prefix::AbstractString)
-    dir, prefix = splitdir(trans_actors_prefix)
-    dir_ = dir == "" ? "." : dir
-    trans_actors = DataFrame[]
-    for filename in readdir(dir_)
-        if startswith(filename, prefix)
-            push!(trans_actors, read_snps_from_csv(joinpath(dir, filename)))
-        end
-    end
-    return Set(vcat((df.ID for df in trans_actors)...))
-end
 
 """
-    control_case(variant::Variant, origin_variant::Variant, origin_case::Int, origin_control::Int)
-
-If the allele representation is an Integer then it is kep the same.
-"""
-function control_case(variant::Variant, origin_variant::Variant, origin_case::Int, origin_control::Int)
-    return (control=origin_control, case=origin_case)
-end
-
-"""
-    control_case(variant::Variant, origin_variant::Variant, origin_case::AbstractString, origin_control::AbstractString)
-
-If the allele representation is a String then new corresponding alleles are inferred for the mapped variant.
-"""
-function control_case(variant::Variant, origin_variant::Variant, origin_case::AbstractString, origin_control::AbstractString)
-    allele_map = Dict(
-        minor_allele(origin_variant) => minor_allele(variant),
-        major_allele(origin_variant) => major_allele(variant)
-    )
-    control = join(allele_map[string(a)] for a in origin_control)
-    case = join(allele_map[string(a)] for a in origin_case)
-    return (control=control, case=case)
-end
-
-"""
-    update_treatment_setting!(treatment_setting, variant::Variant, origin_variant::Variant, origin_case, origin_control)
+    update_treatment_setting!(variant::Variant, origin_variant::Variant, origin_case, origin_control)
 
 When the origin_variant is a `Variant` it means it is a "mapped" transactor and
 new alleles must be inferred.
 """
-function update_treatment_setting!(treatment_setting, variant::Variant, origin_variant::Variant, origin_case, origin_control)
-    push!(
-        treatment_setting, 
-        control_case(variant, origin_variant, origin_case, origin_control)
-        )
+function get_new_treatment_setting(variant::Variant, origin_variant::Variant, origin_setting)
+    allele_map = Dict(
+        minor_allele(origin_variant) => minor_allele(variant),
+        major_allele(origin_variant) => major_allele(variant)
+    )
+    control = join(allele_map[string(a)] for a in origin_setting.control)
+    case = join(allele_map[string(a)] for a in origin_setting.case)
+    return (control=control, case=case)
 end
 
 """
-    update_treatment_setting!(treatment_setting, variant::Variant, origin_variant::AbstractString, origin_case, origin_control)
+    update_treatment_setting!(treatment_setting, treatment, origin_treatment, origin_case, origin_control)
 
-When the origin_variant is an `AbstractString` it means it is a "non-mapped" treatment and
-treatment settings are kept identical.
+When the origin_treatment is anything else it means it is a "non-mapped" treatment and treatment settings are kept identical.
 """
-function update_treatment_setting!(treatment_setting, variant::AbstractString, origin_variant::AbstractString, origin_case, origin_control)
-    push!(
-        treatment_setting, 
-        (control=origin_control, case=origin_case)
-        )
-end
+get_new_treatment_setting(treatment, origin_treatment, origin_setting) = origin_setting
+
 
 function is_numbered_chromosome_file(filename, prefix)
     if occursin(prefix, filename) && endswith(filename, "bgen")
@@ -158,7 +121,7 @@ function find_maf_matching_random_variants!(
         catch
             verbosity > 0 && @info(string(
                 "An error occured while looking for variant ", 
-                candidate_rs_id, 
+                candidate_rs_id,
                 " in BGEN file: continuing."))
             continue
         end
@@ -190,7 +153,7 @@ function find_maf_matching_random_variants(
                     variant = variant_by_rsid(b, rs_id)
                     verbosity > 0 && @info("Looking for variants matching: ", rs_id)
                     minor_allele_dosage!(b, variant)
-                    variant_map[rs_id] = (
+                    variant_map[Symbol(rs_id)] = (
                         variant,
                         find_maf_matching_random_variants!(
                         b, variant, all_rsids;
@@ -205,81 +168,77 @@ function find_maf_matching_random_variants(
 end
 
 
-function make_random_variants_parameters(results, variant_map)
-    parameters = TMLE.Parameter[]
-    transactors = keys(variant_map)
-    
-    for row in eachrow(results)
-        # At least one trans-actor in the parameter treatments to be processed
-        if any(occursin(rs_id, row.TREATMENTS) for rs_id in transactors)
-            confounders = getconfounders(row.CONFOUNDERS)
-            target = Symbol(row.TARGET)
-            covariates = getcovariates(row.COVARIATES)
-            paramtype = getfield(TMLE, Symbol(row.PARAMETER_TYPE))
-
-            control = split_string(row.CONTROL)
-            case = split_string(row.CASE)
-            if tryparse(Int, first(control)) !== nothing
-                control = parse.(Int, control)
-                case = parse.(Int, case)
-            end
-
-            origin_treatments_ids = split_string(row.TREATMENTS)
-            treatments = [t ∈ transactors ? variant_map[t][2] : [t] for t in origin_treatments_ids]
-            for treatment_vars ∈ Iterators.product(treatments...)
-                treatment_setting = []
-                for (index, treatment_var) in enumerate(treatment_vars)
-                    origin_id = origin_treatments_ids[index]
-                    origin_variant = haskey(variant_map, origin_id) ? variant_map[origin_id][1] : treatment_var
-                    update_treatment_setting!(
-                        treatment_setting, 
-                        treatment_var, 
-                        origin_variant, 
-                        case[index], 
-                        control[index]
-                    )
-                end
-                treatment = NamedTuple{Tuple(Symbol(rsid(v)) for v in treatment_vars)}(treatment_setting)
-                push!(
-                    parameters,
-                    paramtype(
-                        target=target,
-                        treatment=treatment,
-                        confounders=confounders,
-                        covariates=covariates
-                    )
-                )
-            end
-        end
-    end
-    return parameters
+function make_random_variants_estimands(Ψ::ComposedEstimand, variant_map)
+    newargs = Tuple(make_random_variants_estimands(arg, variant_map) for arg ∈ Ψ.args)
+    return [ComposedEstimand(Ψ.f, Tuple(args)) for args ∈ zip(newargs...)]
 end
 
+function make_random_variants_estimands(Ψ::T, variant_map) where T <: TMLE.Estimand
+    transactors = keys(variant_map)
+    origin_treatment_variables = keys(Ψ.treatment_values)
+    # At least one trans-actor in the parameter treatments to be processed
+    new_estimands = []
+    if any(rs_id ∈ origin_treatment_variables for rs_id in transactors)
+        new_treatments = [t ∈ transactors ? variant_map[t][2] : [t] for t in origin_treatment_variables]
+        for new_treatment_vars ∈ Iterators.product(new_treatments...)
+            new_treatment_names = Tuple(Symbol(rsid(v)) for v in new_treatment_vars)
+            new_treatments_setting = []
+            for (origin_treatment_name, new_treatment_var) in zip(origin_treatment_variables, new_treatment_vars)
+                # Potentially retrieve the genetic variant to match alleles
+                origin_treatment_var = haskey(variant_map, origin_treatment_name) ? variant_map[origin_treatment_name][1] : new_treatment_var
+                # Update treatment settings with new matched alleles
+                new_treatment_setting = get_new_treatment_setting(
+                    new_treatment_var, 
+                    origin_treatment_var, 
+                    Ψ.treatment_values[origin_treatment_name]
+                )
+                push!(new_treatments_setting, new_treatment_setting)
+            end
+            treatment_values = NamedTuple{new_treatment_names}(new_treatments_setting)
+            treatment_confounders = NamedTuple{new_treatment_names}(values(Ψ.treatment_confounders))
+            
+            push!(
+                new_estimands,
+                T(;
+                    outcome = Ψ.outcome,
+                    treatment_values = treatment_values,
+                    treatment_confounders = treatment_confounders,
+                    outcome_extra_covariates = Ψ.outcome_extra_covariates
+                )
+            )
+        end
+    end
+    return new_estimands
+end
+
+make_random_variants_estimands(estimands, variant_map) = 
+    vcat((make_random_variants_estimands(Ψ, variant_map) for Ψ in estimands)...)
 
 function generate_random_variants_parameters_and_dataset(parsed_args)
     resultsfile = parsed_args["results"]
     p = parsed_args["p"]
     rng = StableRNG(parsed_args["rng"])
     reltol = parsed_args["reltol"]
-    trans_actors = trans_actors_from_prefix(parsed_args["trans-actors-prefix"])
+    trans_actors = get_variants_to_randomize(parsed_args["variants-to-randomize"])
     bgen_prefix = parsed_args["bgen-prefix"]
-    pval_col = parsed_args["pval-col"]
     pval_threshold = parsed_args["pval-threshold"]
     out = parsed_args["out"]
     verbosity = parsed_args["verbosity"]
+    estimator_key = Symbol(parsed_args["estimator-key"])
     
-    verbosity > 0 && @info string("Retrieving significant parameters.")
-    results = retrieve_significant_results(resultsfile, threshold=pval_col => pval_threshold)
-    all_rsids = unique_treatments(results)
+    verbosity > 0 && @info string("Retrieving significant estimands.")
+    significant_estimands = read_significant_results(resultsfile; threshold=pval_threshold, estimator_key=estimator_key)
+    all_rsids = unique_treatments(significant_estimands)
 
-    verbosity > 0 && @info string("Looking for random MAF matching variants for each trans-actor.")
+    verbosity > 0 && @info string("Looking for random MAF matching variants for each Trans-Actor.")
     variant_map = find_maf_matching_random_variants(
         trans_actors, bgen_prefix, all_rsids; 
         p=p, rng=rng, reltol=reltol, verbosity=verbosity
     )
-    verbosity > 0 && @info string("Building new parameters.")
-    parameters = make_random_variants_parameters(results, variant_map)
-    optimize_ordering!(parameters)
-    parameters_to_yaml(out, parameters)
+    verbosity > 0 && @info string("Building new estimands from matched random variants.")
+    new_estimands = make_random_variants_estimands(significant_estimands, variant_map)
+    new_estimands = groups_ordering(new_estimands, brute_force=false, do_shuffle=false)
+    serialize(out, Configuration(estimands = new_estimands))
     verbosity > 0 && @info string("Done.")
+    return 0
 end

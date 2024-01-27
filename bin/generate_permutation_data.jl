@@ -19,14 +19,14 @@ function parse_commandline()
             help = "Where the data will be generated."
             arg_type = String
             default = pwd()
-        "--pval-col"
-            help = "The p-value column to search for significant results"
-            default = "TMLE_PVALUE"
-            arg_type = String
         "--pval-threshold"
             help = "The p-value threshold for significant results calling"
             default = 0.05
             arg_type = Float64
+        "--estimator-key"
+            help = "Estimator to use to check significance."
+            default = "TMLE"
+            arg_type = String
         "--limit"
             help = "The max number of permutation parameters to be generated"
             default = nothing
@@ -43,6 +43,13 @@ function parse_commandline()
             help = "Results will be appended to outfiles every chunk"
             default = 100
             arg_type = Int
+        "--max-attempts"
+            help = "Maximum number of permutation to induce to maximize the number of permuted dataset matching the positivity constraint"
+            default = 1
+            arg_type = Int
+        "--positivity-constraint"
+            help = "Only permuted estimands passing that constraint are considered."
+            arg_type = Float64
         "--verbosity", "-v"
             help = "Verbosity level"
             arg_type = Int

@@ -9,8 +9,8 @@ function parse_commandline()
         add_version = true)
 
     @add_arg_table s begin
-        "trans-actors-prefix"
-            help = "Trans acting factors in csv format"
+        "variants-to-randomize"
+            help = "Variants to randomize in .txt format"
             required = true
         "results"
             help = "CSV file containing TarGene results."
@@ -19,16 +19,16 @@ function parse_commandline()
             help = "BGEN chromosome files prefix"
             required = true
         "--out"
-            help = "Path to the output .yaml file "
+            help = "Path to the output .jls file "
             arg_type = String
-            default = "random_variants_parameters.yaml"
+            default = "random_variants_parameters.jls"
         "--p"
             help = "Number of random variants per trans-actor"
             arg_type = Int
             default = 10
-        "--pval-col"
-            help = "The p-value column to search for significant results"
-            default = "TMLE_PVALUE"
+        "--estimator-key"
+            help = "Estimator to use to check significance."
+            default = "TMLE"
             arg_type = String
         "--pval-threshold"
             help = "The p-value threshold for significant results calling"
